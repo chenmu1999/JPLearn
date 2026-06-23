@@ -7,7 +7,7 @@
 - 从 N5 CSV 资料幂等导入词汇和语法。
 - 统一管理词汇/语法知识点。
 - 缓存 AI 生成例句，减少重复成本。
-- 保存用户造句、AI 批改和原始返回。
+- 保存用户造句、AI 批改、逐知识点评估结果和原始返回。
 - 维护每个知识点的掌握状态。
 - 为后续多用户、PostgreSQL 和更多等级资料保留扩展空间。
 
@@ -16,7 +16,7 @@
 - 第一版固定一个本地用户：`UserProfile` 仍然建表，默认创建 `local-user`。
 - 知识点 ID 使用 CUID 字符串，方便 Prisma 和未来同步。
 - CSV 原始序号保留为 `sourceNo`，并用 `sourceKey` 做幂等导入。
-- 掌握规则所需分数和计数放在 `MasteryState`，练习历史放在 `PracticeAttempt`。
+- 掌握规则所需分数和计数放在 `MasteryState`，练习输入历史放在 `PracticeAttempt`，逐知识点判定放在 `PracticeReviewItem`。
 - AI 原始 JSON 返回完整保存，方便后续排查批改质量。
 - SQLite 阶段不做全文搜索表，先用普通字段过滤和 `contains` 搜索。
 
@@ -46,12 +46,11 @@ enum PracticeMode {
 ```prisma
 enum ReviewStatus {
   CORRECT
-  PARTIAL
   INCORRECT
 }
 ```
 
-建议默认：`score >= 0.75` 记为 `CORRECT`，`0.4 <= score < 0.75` 记为 `PARTIAL`，低于 `0.4` 记为 `INCORRECT`。
+不设置“部分正确”。AI 必须对每个受影响知识点给出 `CORRECT` 或 `INCORRECT`。
 
 ## Prisma Schema 草案
 
@@ -91,7 +90,8 @@ model KnowledgePoint {
   updatedAt      DateTime      @updatedAt
 
   examples       GeneratedExample[]
-  attempts       PracticeAttempt[]
+  targetAttempts PracticeAttempt[]
+  reviewItems    PracticeReviewItem[]
   masteryStates  MasteryState[]
 
   @@index([kind])
@@ -122,30 +122,46 @@ model GeneratedExample {
 model PracticeAttempt {
   id               String         @id @default(cuid())
   userId           String
-  knowledgePointId String
+  targetKnowledgePointId String
   mode             PracticeMode   @default(SENTENCE_WRITING)
   userSentence     String
-  status           ReviewStatus
-  isCorrect        Boolean
-  score            Float
-  feedbackZh       String
+  summaryZh        String
   correctedSentence String?
   naturalSentence   String?
-  targetUsageNote   String?
-  otherErrorsNote   String?
   model             String
   promptVersion     String
   rawAiResponse     String?
   createdAt         DateTime      @default(now())
 
   user             UserProfile    @relation(fields: [userId], references: [id], onDelete: Cascade)
-  knowledgePoint   KnowledgePoint @relation(fields: [knowledgePointId], references: [id], onDelete: Cascade)
+  targetKnowledgePoint KnowledgePoint @relation(fields: [targetKnowledgePointId], references: [id], onDelete: Cascade)
+  reviewItems      PracticeReviewItem[]
 
   @@index([userId, createdAt])
-  @@index([knowledgePointId, createdAt])
-  @@index([userId, knowledgePointId, createdAt])
-  @@index([status])
+  @@index([targetKnowledgePointId, createdAt])
+  @@index([userId, targetKnowledgePointId, createdAt])
   @@map("practice_attempts")
+}
+
+model PracticeReviewItem {
+  id               String         @id @default(cuid())
+  attemptId        String
+  knowledgePointId String
+  status           ReviewStatus
+  scoreDelta       Int
+  beforeScore      Int
+  afterScore       Int
+  noteZh           String
+  evidence         String?
+  createdAt        DateTime       @default(now())
+
+  attempt          PracticeAttempt @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  knowledgePoint   KnowledgePoint  @relation(fields: [knowledgePointId], references: [id], onDelete: Cascade)
+
+  @@unique([attemptId, knowledgePointId])
+  @@index([knowledgePointId, createdAt])
+  @@index([status])
+  @@map("practice_review_items")
 }
 
 model MasteryState {
@@ -154,7 +170,6 @@ model MasteryState {
   knowledgePointId String
   masteryScore     Int            @default(0)
   correctCount     Int            @default(0)
-  partialCount     Int            @default(0)
   wrongCount       Int            @default(0)
   isMastered       Boolean        @default(false)
   lastPracticedAt  DateTime?
@@ -235,15 +250,30 @@ displayName: Local Learner
 
 ### `PracticeAttempt`
 
-保存一次用户造句和 AI 批改结果。
+保存一次用户造句提交和 AI 原始批改结果。
 
-- `status` 保存三档结果：正确、部分正确、错误。
-- `isCorrect` 是掌握度规则的快捷布尔值，只在 `status = CORRECT` 时为 true。
-- `score` 是 AI 对该次输入质量的评分，范围 `0` 到 `1`；不要和 `MasteryState.masteryScore` 混用。
-- `feedbackZh` 面向用户展示。
-- `targetUsageNote` 说明目标知识点是否用对。
-- `otherErrorsNote` 保存非目标知识点的明显错误，避免影响主要判断。
+- `targetKnowledgePointId` 是出题时要求用户练习的目标知识点。
+- `summaryZh` 面向用户展示本次输入整体反馈。
+- `correctedSentence` 保存修正后的句子。
+- `naturalSentence` 保存更自然的表达。
 - `rawAiResponse` 保存 AI JSON 原文。
+
+### `PracticeReviewItem`
+
+保存一次输入中每个受影响知识点的判定结果。
+
+- 每条记录只对应一个知识点。
+- `status` 只有 `CORRECT` 或 `INCORRECT`。
+- `scoreDelta` 保存本次对该知识点的规则分数变化：正确为 `+20`，错误为 `-10`。
+- `beforeScore` 和 `afterScore` 保存应用分数变化前后的分数，便于审计和复盘。
+- `afterScore` 必须按 `0` 到 `100` 夹紧；例如 `beforeScore=95` 且正确时，`scoreDelta=20`，`afterScore=100`。
+- `noteZh` 说明为什么该知识点加分或扣分。
+- `evidence` 保存句子中的相关片段，例如拼错的词或出错的语法结构。
+
+示例：
+
+- 用户练习语法「は」，句子里词汇拼写错但「は」用对：语法「は」对应 `CORRECT +20`，拼错词汇对应 `INCORRECT -10`。
+- 用户词汇拼写正确但漏掉「は」：词汇对应 `CORRECT +20`，语法「は」对应 `INCORRECT -10`。
 
 ### `MasteryState`
 
@@ -251,7 +281,6 @@ displayName: Local Learner
 
 - `masteryScore`：当前掌握分数，范围 `0` 到 `100`。
 - `correctCount`：累计正确输入次数。
-- `partialCount`：累计部分正确输入次数。
 - `wrongCount`：累计错误输入次数。
 - `isMastered`：是否已掌握。
 - `masteredAt`：首次达到 100 分的时间。
@@ -259,7 +288,6 @@ displayName: Local Learner
 默认掌握规则：
 
 - `CORRECT`：`correctCount + 1`，`masteryScore + 20`。
-- `PARTIAL`：`partialCount + 1`，默认不改变 `masteryScore`。
 - `INCORRECT`：`wrongCount + 1`，`masteryScore - 10`。
 - `masteryScore` 最低为 `0`，最高为 `100`。
 - `masteryScore >= 100` 时设置 `isMastered = true`。
@@ -304,7 +332,7 @@ jlpt_n5_grammar_outline:1
 - 知识点列表：按 `kind`、`category`、`isMastered`、关键词过滤。
 - 下一题：优先查询 `isMastered = false`，再按 `masteryScore` 升序、`lastPracticedAt` 升序或空值优先。
 - 详情页：按 `KnowledgePoint.id` 查询，包含例句、掌握状态、最近练习。
-- 历史记录：按 `userId + knowledgePointId + createdAt desc` 查询。
+- 历史记录：按 `userId + targetKnowledgePointId + createdAt desc` 查询，再加载 `PracticeReviewItem` 明细。
 
 索引优先覆盖：
 
@@ -315,35 +343,30 @@ jlpt_n5_grammar_outline:1
 - `MasteryState.userId + masteryScore`
 - `MasteryState.userId + lastPracticedAt`
 - `PracticeAttempt.userId + createdAt`
-- `PracticeAttempt.knowledgePointId + createdAt`
+- `PracticeAttempt.targetKnowledgePointId + createdAt`
+- `PracticeReviewItem.knowledgePointId + createdAt`
 
 ## 待确认决策
 
-### 1. 部分正确是否改变掌握分数
-
-建议默认：不改变 `masteryScore`，只增加 `partialCount`。
-
-原因：N5 造句训练的目标是“能正确使用”，部分正确适合鼓励和复盘，但不应推动掌握完成，也不应像错误一样惩罚。
-
-### 2. 已掌握后是否继续计数
+### 1. 已掌握后是否继续计数
 
 建议默认：继续记录所有练习和计数，但不自动取消已掌握；分数保持在 `0` 到 `100` 范围内。
 
 原因：这样历史完整，用户复习时仍能看到长期表现。
 
-### 3. 例句缓存是否允许重复生成多批
+### 2. 例句缓存是否允许重复生成多批
 
 建议默认：允许重复生成多批，展示最新 5 条，后续可做“收藏/隐藏”。
 
 原因：不同批次例句有助于阅读量，不会破坏主流程；成本也由 DeepSeek 低价模型控制。
 
-### 4. 是否保存 AI 原始返回
+### 3. 是否保存 AI 原始返回
 
 建议默认：保存。
 
 原因：这是排查批改质量、prompt 演进和数据回溯的关键材料。第一版单用户，隐私风险可控。
 
-### 5. 是否现在引入 `StudySession`
+### 4. 是否现在引入 `StudySession`
 
 建议默认：不引入。
 

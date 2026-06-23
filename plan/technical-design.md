@@ -101,18 +101,32 @@ plan/
 
 ### PracticeAttempt
 
-保存一次用户练习。
+保存一次用户造句提交。
 
 关键字段：
 - `id`
-- `knowledgePointId`
+- `targetKnowledgePointId`
 - `userSentence`
-- `isCorrect`
-- `score`
-- `feedbackZh`
 - `correctedSentence`
+- `summaryZh`
 - `model`
 - `rawAiResponse`
+- `createdAt`
+
+### PracticeReviewItem
+
+保存一次输入中每个受影响知识点的判定结果。
+
+关键字段：
+- `id`
+- `attemptId`
+- `knowledgePointId`
+- `status`：`CORRECT` 或 `INCORRECT`
+- `scoreDelta`：正确为 `+20`，错误为 `-10`
+- `beforeScore`
+- `afterScore`
+- `noteZh`
+- `evidence`
 - `createdAt`
 
 ### MasteryState
@@ -171,7 +185,7 @@ plan/
 
 ```json
 {
-  "knowledgePointId": "string",
+  "targetKnowledgePointId": "string",
   "sentence": "日本語の文"
 }
 ```
@@ -180,10 +194,26 @@ plan/
 
 ```json
 {
-  "isCorrect": true,
-  "score": 0.9,
-  "feedbackZh": "这个句子正确使用了目标词。",
-  "correctedSentence": "..."
+  "summaryZh": "语法使用正确，但有一个词汇拼写错误。",
+  "correctedSentence": "...",
+  "reviewItems": [
+    {
+      "knowledgePointId": "grammar-id",
+      "status": "CORRECT",
+      "scoreDelta": 20,
+      "beforeScore": 40,
+      "afterScore": 60,
+      "noteZh": "目标语法使用正确。"
+    },
+    {
+      "knowledgePointId": "vocabulary-id",
+      "status": "INCORRECT",
+      "scoreDelta": -10,
+      "beforeScore": 30,
+      "afterScore": 20,
+      "noteZh": "词汇拼写错误。"
+    }
+  ]
 }
 ```
 
@@ -203,10 +233,11 @@ plan/
 
 要求：
 - 输出 JSON。
-- 只判断目标知识点是否被正确使用。
-- 可以指出其他明显错误，但不要让无关错误主导评分。
-- 分数范围 `0` 到 `1`。
-- `isCorrect=true` 的建议阈值是 `score >= 0.75`。
+- 不设置“部分正确”，每个受影响知识点只能是 `CORRECT` 或 `INCORRECT`。
+- 至少判断目标知识点；如果输入中明显使用了其他已知词汇或语法，也要返回对应知识点判定。
+- 每个知识点独立加减分：正确 `+20`，错误 `-10`。
+- 词汇拼写错误只扣对应词汇；如果语法结构正确，对应语法仍然加分。
+- 语法小错也扣对应语法，例如漏掉主题助词「は」。
 
 ## 配置
 
