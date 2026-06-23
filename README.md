@@ -1,6 +1,15 @@
 # JPLearn
 
-## 中文
+<p align="center">
+  <a href="#中文">中文</a> |
+  <a href="#english">English</a> |
+  <a href="#日本語">日本語</a>
+</p>
+
+> GitHub README does not support JavaScript-powered tabs. This README uses native GitHub anchors and collapsible language sections instead.
+
+<details open>
+<summary id="中文"><strong>中文</strong></summary>
 
 JPLearn 是一个面向日语 N5 学习的 Web 工具，主要用于个人学习，也计划支持给他人试用。项目目标是把词汇和语法都整理为可练习的知识点，通过“阅读例句 -> 自己造句 -> AI 批改 -> 更新掌握度”的循环，帮助学习者从被动记忆逐步转向主动使用。
 
@@ -20,7 +29,10 @@ JPLearn 是一个面向日语 N5 学习的 Web 工具，主要用于个人学习
 
 项目仍处于设计和 MVP 准备阶段，详细规划见 `plan/` 目录。
 
-## English
+</details>
+
+<details>
+<summary id="english"><strong>English</strong></summary>
 
 JPLearn is a web-based Japanese N5 learning tool, primarily designed for personal study while remaining suitable for sharing with other learners. The core idea is to treat both vocabulary and grammar as practiceable knowledge points, then build a learning loop around reading example sentences, writing original sentences, receiving AI feedback, and updating mastery progress.
 
@@ -40,7 +52,10 @@ Current source material size:
 
 The project is currently in the design and MVP preparation stage. See the `plan/` directory for detailed planning documents.
 
-## 日本語
+</details>
+
+<details>
+<summary id="日本語"><strong>日本語</strong></summary>
 
 JPLearn は、日本語 N5 学習向けの Web ツールです。主に個人学習用として作りますが、ほかの学習者にも試してもらえる形を目指しています。語彙と文法をどちらも練習可能な知識ポイントとして扱い、「例文を読む -> 自分で文を作る -> AI に添削してもらう -> 習得度を更新する」という学習サイクルを作ることが目的です。
 
@@ -59,3 +74,5 @@ JPLearn は、日本語 N5 学習向けの Web ツールです。主に個人学
 - N5 文法：84 項目。
 
 現在は設計と MVP 準備の段階です。詳しい計画は `plan/` ディレクトリを参照してください。
+
+</details>
