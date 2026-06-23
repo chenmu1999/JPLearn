@@ -16,7 +16,7 @@
 - 第一版固定一个本地用户：`UserProfile` 仍然建表，默认创建 `local-user`。
 - 知识点 ID 使用 CUID 字符串，方便 Prisma 和未来同步。
 - CSV 原始序号保留为 `sourceNo`，并用 `sourceKey` 做幂等导入。
-- 掌握规则所需计数放在 `MasteryState`，练习历史放在 `PracticeAttempt`。
+- 掌握规则所需分数和计数放在 `MasteryState`，练习历史放在 `PracticeAttempt`。
 - AI 原始 JSON 返回完整保存，方便后续排查批改质量。
 - SQLite 阶段不做全文搜索表，先用普通字段过滤和 `contains` 搜索。
 
@@ -152,6 +152,7 @@ model MasteryState {
   id               String         @id @default(cuid())
   userId           String
   knowledgePointId String
+  masteryScore     Int            @default(0)
   correctCount     Int            @default(0)
   partialCount     Int            @default(0)
   wrongCount       Int            @default(0)
@@ -166,6 +167,7 @@ model MasteryState {
 
   @@unique([userId, knowledgePointId])
   @@index([userId, isMastered])
+  @@index([userId, masteryScore])
   @@index([userId, lastPracticedAt])
   @@map("mastery_states")
 }
@@ -237,6 +239,7 @@ displayName: Local Learner
 
 - `status` 保存三档结果：正确、部分正确、错误。
 - `isCorrect` 是掌握度规则的快捷布尔值，只在 `status = CORRECT` 时为 true。
+- `score` 是 AI 对该次输入质量的评分，范围 `0` 到 `1`；不要和 `MasteryState.masteryScore` 混用。
 - `feedbackZh` 面向用户展示。
 - `targetUsageNote` 说明目标知识点是否用对。
 - `otherErrorsNote` 保存非目标知识点的明显错误，避免影响主要判断。
@@ -246,18 +249,20 @@ displayName: Local Learner
 
 保存某个用户对某个知识点的当前掌握状态。
 
-- `correctCount`：累计正确次数。
-- `partialCount`：累计部分正确次数。
-- `wrongCount`：累计错误次数。
+- `masteryScore`：当前掌握分数，范围 `0` 到 `100`。
+- `correctCount`：累计正确输入次数。
+- `partialCount`：累计部分正确输入次数。
+- `wrongCount`：累计错误输入次数。
 - `isMastered`：是否已掌握。
-- `masteredAt`：首次达到掌握阈值的时间。
+- `masteredAt`：首次达到 100 分的时间。
 
 默认掌握规则：
 
-- `CORRECT`：`correctCount + 1`。
-- `PARTIAL`：`partialCount + 1`。
-- `INCORRECT`：`wrongCount + 1`。
-- `correctCount >= 3` 时设置 `isMastered = true`。
+- `CORRECT`：`correctCount + 1`，`masteryScore + 20`。
+- `PARTIAL`：`partialCount + 1`，默认不改变 `masteryScore`。
+- `INCORRECT`：`wrongCount + 1`，`masteryScore - 10`。
+- `masteryScore` 最低为 `0`，最高为 `100`。
+- `masteryScore >= 100` 时设置 `isMastered = true`。
 - AI 调用失败、JSON 解析失败、请求校验失败不创建 `PracticeAttempt`，也不更新 `MasteryState`。
 
 ## 导入策略
@@ -297,7 +302,7 @@ jlpt_n5_grammar_outline:1
 
 - 首页统计：按 `userId` 聚合 `MasteryState`。
 - 知识点列表：按 `kind`、`category`、`isMastered`、关键词过滤。
-- 下一题：优先查询 `isMastered = false`，再按 `lastPracticedAt` 升序或空值优先。
+- 下一题：优先查询 `isMastered = false`，再按 `masteryScore` 升序、`lastPracticedAt` 升序或空值优先。
 - 详情页：按 `KnowledgePoint.id` 查询，包含例句、掌握状态、最近练习。
 - 历史记录：按 `userId + knowledgePointId + createdAt desc` 查询。
 
@@ -307,21 +312,22 @@ jlpt_n5_grammar_outline:1
 - `KnowledgePoint.category`
 - `KnowledgePoint.title`
 - `MasteryState.userId + isMastered`
+- `MasteryState.userId + masteryScore`
 - `MasteryState.userId + lastPracticedAt`
 - `PracticeAttempt.userId + createdAt`
 - `PracticeAttempt.knowledgePointId + createdAt`
 
 ## 待确认决策
 
-### 1. 部分正确是否增加掌握进度
+### 1. 部分正确是否改变掌握分数
 
-建议默认：不增加 `correctCount`，只增加 `partialCount`。
+建议默认：不改变 `masteryScore`，只增加 `partialCount`。
 
-原因：N5 造句训练的目标是“能正确使用”，部分正确适合鼓励和复盘，但不应推动掌握完成。
+原因：N5 造句训练的目标是“能正确使用”，部分正确适合鼓励和复盘，但不应推动掌握完成，也不应像错误一样惩罚。
 
 ### 2. 已掌握后是否继续计数
 
-建议默认：继续记录所有练习和计数，但不自动取消已掌握。
+建议默认：继续记录所有练习和计数，但不自动取消已掌握；分数保持在 `0` 到 `100` 范围内。
 
 原因：这样历史完整，用户复习时仍能看到长期表现。
 

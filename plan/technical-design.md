@@ -122,6 +122,7 @@ plan/
 关键字段：
 - `id`
 - `knowledgePointId`
+- `masteryScore`
 - `correctCount`
 - `wrongCount`
 - `isMastered`
