@@ -107,6 +107,7 @@ plan/
 - `id`
 - `targetKnowledgePointId`
 - `mode`
+- `exerciseType`
 - `promptText`
 - `userAnswer`
 - `correctedSentence`
@@ -189,6 +190,7 @@ plan/
 {
   "targetKnowledgePointId": "string",
   "mode": "SENTENCE_WRITING",
+  "exerciseType": "SENTENCE_WRITING",
   "promptText": "optional prompt text",
   "answer": "日本語の文"
 }

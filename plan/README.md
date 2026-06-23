@@ -15,6 +15,7 @@
 - `technical-design.md`：技术架构、数据模型、API、AI 调用和部署设计。
 - `database-design.md`：Prisma/SQLite 数据库模型、字段、索引、导入策略和待确认决策。
 - `architecture-design.md`：项目模块划分、职责边界、核心数据流和扩展点。
+- `exercise-design.md`：基于 N5 真题的题型设计、知识点到题型映射和练习优先级。
 - `execution-plan.md`：分阶段执行步骤、验收标准和虚拟机部署清单。
 
 ## 当前默认决策

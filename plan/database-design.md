@@ -42,6 +42,23 @@ enum PracticeMode {
 
 `SENTENCE_WRITING` 表示主动造句输入，`COMPREHENSION` 表示理解类练习，例如阅读例句后回答含义、判断用法或选择解释。两类练习使用同一套掌握分数规则。
 
+### `ExerciseType`
+
+```prisma
+enum ExerciseType {
+  VOCAB_CONTEXT_CHOICE
+  VOCAB_REPHRASE
+  GRAMMAR_FILL_BLANK
+  GRAMMAR_SENTENCE_ORDER
+  EXAMPLE_COMPREHENSION
+  SHORT_READING
+  INFO_SEARCH
+  SENTENCE_WRITING
+}
+```
+
+`ExerciseType` 表示具体题型。第一版先覆盖文本题，听力题型后续再扩展。
+
 ### `ReviewStatus`
 
 ```prisma
@@ -125,6 +142,7 @@ model PracticeAttempt {
   userId           String
   targetKnowledgePointId String
   mode             PracticeMode   @default(SENTENCE_WRITING)
+  exerciseType     ExerciseType
   promptText       String?
   userAnswer       String
   summaryZh        String
@@ -256,6 +274,7 @@ displayName: Local Learner
 
 - `targetKnowledgePointId` 是出题时要求用户练习的目标知识点。
 - `mode` 区分造句输入和理解类练习。
+- `exerciseType` 记录具体题型，用于统计哪类题暴露问题最多。
 - `promptText` 保存理解题题干、例句或材料；造句练习可为空。
 - `userAnswer` 保存用户答案。造句模式下它就是用户写的日语句子；理解模式下它可以是中文解释、选择项或判断结果。
 - `summaryZh` 面向用户展示本次输入整体反馈。
