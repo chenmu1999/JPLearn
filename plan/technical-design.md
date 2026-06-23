@@ -101,12 +101,14 @@ plan/
 
 ### PracticeAttempt
 
-保存一次用户造句提交。
+保存一次用户练习提交。
 
 关键字段：
 - `id`
 - `targetKnowledgePointId`
-- `userSentence`
+- `mode`
+- `promptText`
+- `userAnswer`
 - `correctedSentence`
 - `summaryZh`
 - `model`
@@ -115,7 +117,7 @@ plan/
 
 ### PracticeReviewItem
 
-保存一次输入中每个受影响知识点的判定结果。
+保存一次练习中每个受影响知识点的判定结果。
 
 关键字段：
 - `id`
@@ -179,14 +181,16 @@ plan/
 
 ### `POST /api/attempts`
 
-提交用户造句并批改。
+提交用户练习答案并批改。
 
 请求：
 
 ```json
 {
   "targetKnowledgePointId": "string",
-  "sentence": "日本語の文"
+  "mode": "SENTENCE_WRITING",
+  "promptText": "optional prompt text",
+  "answer": "日本語の文"
 }
 ```
 
@@ -194,7 +198,7 @@ plan/
 
 ```json
 {
-  "summaryZh": "语法使用正确，但有一个词汇拼写错误。",
+  "summaryZh": "目标知识点理解或使用正确，但有一个词汇拼写错误。",
   "correctedSentence": "...",
   "reviewItems": [
     {
@@ -229,15 +233,16 @@ plan/
 - 每条包含日语和中文释义。
 - 日语例句必须自然，并包含目标知识点。
 
-### 造句批改
+### 练习批改
 
 要求：
 - 输出 JSON。
 - 不设置“部分正确”，每个受影响知识点只能是 `CORRECT` 或 `INCORRECT`。
-- 至少判断目标知识点；如果输入中明显使用了其他已知词汇或语法，也要返回对应知识点判定。
+- 至少判断目标知识点；如果答案中明显使用了其他已知词汇或语法，也要返回对应知识点判定。
 - 每个知识点独立加减分：正确 `+20`，错误 `-10`。
 - 词汇拼写错误只扣对应词汇；如果语法结构正确，对应语法仍然加分。
 - 语法小错也扣对应语法，例如漏掉主题助词「は」。
+- 理解类练习也使用同一规则：理解正确 `+20`，理解错误 `-10`。
 
 ## 配置
 

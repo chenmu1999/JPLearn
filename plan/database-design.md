@@ -7,7 +7,7 @@
 - 从 N5 CSV 资料幂等导入词汇和语法。
 - 统一管理词汇/语法知识点。
 - 缓存 AI 生成例句，减少重复成本。
-- 保存用户造句、AI 批改、逐知识点评估结果和原始返回。
+- 保存用户练习答案、AI 批改、逐知识点评估结果和原始返回。
 - 维护每个知识点的掌握状态。
 - 为后续多用户、PostgreSQL 和更多等级资料保留扩展空间。
 
@@ -16,7 +16,7 @@
 - 第一版固定一个本地用户：`UserProfile` 仍然建表，默认创建 `local-user`。
 - 知识点 ID 使用 CUID 字符串，方便 Prisma 和未来同步。
 - CSV 原始序号保留为 `sourceNo`，并用 `sourceKey` 做幂等导入。
-- 掌握规则所需分数和计数放在 `MasteryState`，练习输入历史放在 `PracticeAttempt`，逐知识点判定放在 `PracticeReviewItem`。
+- 掌握规则所需分数和计数放在 `MasteryState`，练习答案历史放在 `PracticeAttempt`，逐知识点判定放在 `PracticeReviewItem`。
 - AI 原始 JSON 返回完整保存，方便后续排查批改质量。
 - SQLite 阶段不做全文搜索表，先用普通字段过滤和 `contains` 搜索。
 
@@ -36,10 +36,11 @@ enum KnowledgeKind {
 ```prisma
 enum PracticeMode {
   SENTENCE_WRITING
+  COMPREHENSION
 }
 ```
 
-第一版只做造句练习，但提前留出模式字段。
+`SENTENCE_WRITING` 表示主动造句输入，`COMPREHENSION` 表示理解类练习，例如阅读例句后回答含义、判断用法或选择解释。两类练习使用同一套掌握分数规则。
 
 ### `ReviewStatus`
 
@@ -124,7 +125,8 @@ model PracticeAttempt {
   userId           String
   targetKnowledgePointId String
   mode             PracticeMode   @default(SENTENCE_WRITING)
-  userSentence     String
+  promptText       String?
+  userAnswer       String
   summaryZh        String
   correctedSentence String?
   naturalSentence   String?
@@ -250,9 +252,12 @@ displayName: Local Learner
 
 ### `PracticeAttempt`
 
-保存一次用户造句提交和 AI 原始批改结果。
+保存一次用户练习提交和 AI 原始批改结果。
 
 - `targetKnowledgePointId` 是出题时要求用户练习的目标知识点。
+- `mode` 区分造句输入和理解类练习。
+- `promptText` 保存理解题题干、例句或材料；造句练习可为空。
+- `userAnswer` 保存用户答案。造句模式下它就是用户写的日语句子；理解模式下它可以是中文解释、选择项或判断结果。
 - `summaryZh` 面向用户展示本次输入整体反馈。
 - `correctedSentence` 保存修正后的句子。
 - `naturalSentence` 保存更自然的表达。
@@ -260,7 +265,7 @@ displayName: Local Learner
 
 ### `PracticeReviewItem`
 
-保存一次输入中每个受影响知识点的判定结果。
+保存一次练习中每个受影响知识点的判定结果。
 
 - 每条记录只对应一个知识点。
 - `status` 只有 `CORRECT` 或 `INCORRECT`。
@@ -274,14 +279,16 @@ displayName: Local Learner
 
 - 用户练习语法「は」，句子里词汇拼写错但「は」用对：语法「は」对应 `CORRECT +20`，拼错词汇对应 `INCORRECT -10`。
 - 用户词汇拼写正确但漏掉「は」：词汇对应 `CORRECT +20`，语法「は」对应 `INCORRECT -10`。
+- 用户做理解题并正确理解目标词汇或语法：对应知识点 `CORRECT +20`。
+- 用户做理解题但理解错误：对应知识点 `INCORRECT -10`。
 
 ### `MasteryState`
 
 保存某个用户对某个知识点的当前掌握状态。
 
 - `masteryScore`：当前掌握分数，范围 `0` 到 `100`。
-- `correctCount`：累计正确输入次数。
-- `wrongCount`：累计错误输入次数。
+- `correctCount`：累计正确练习次数。
+- `wrongCount`：累计错误练习次数。
 - `isMastered`：是否已掌握。
 - `masteredAt`：首次达到 100 分的时间。
 
