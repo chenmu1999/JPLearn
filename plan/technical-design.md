@@ -44,6 +44,8 @@ plan/
 
 ## 数据模型
 
+详细 Prisma schema 草案、字段约束、索引和导入幂等策略见 `database-design.md`。本节只保留核心模型摘要。
+
 ### KnowledgePoint
 
 统一表示词汇和语法。
