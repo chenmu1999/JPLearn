@@ -17,7 +17,7 @@ JPLearn 是一个面向日语 N5 学习的 Web 工具，主要用于个人学习
 - 使用 DeepSeek v4 flash，经 OpenAI 兼容 API 生成例句和批改造句。
 - 使用 SQLite + Prisma 保存练习记录和掌握状态。
 - 使用 Next.js + TypeScript + Tailwind CSS 构建 Web 前端。
-- 本机 Windows 开发，Ubuntu 虚拟机/Docker Compose 部署验证，后续可迁移到 Linux 服务器。
+- Windows 本机只书写源码，所有安装、编译、检查、测试、启动和部署均在 Ubuntu 虚拟机完成；测试期通过 ngrok 隧道访问，后续可迁移到正式 Linux 服务。
 
 ## 当前资料规模
 
@@ -26,4 +26,40 @@ JPLearn 是一个面向日语 N5 学习的 Web 工具，主要用于个人学习
 
 ## 项目状态
 
-项目仍处于设计和 MVP 准备阶段。详细规划见 [`plan/`](./plan/) 目录。
+正式 Next.js 工程已经初始化，目前正在进入 MVP 基础功能开发阶段。详细规划见 [`plan/`](./plan/) 目录。
+
+## 开发与运行环境边界
+
+Windows 工作区 `D:\Project\Web\JPLearn` 只用于查看、书写和修改源码及文档。禁止在 Windows 本机安装依赖、编译、构建、运行类型检查或 Lint、执行测试、启动服务、调用 DeepSeek API、操作项目数据库或部署。
+
+项目使用 pnpm，但以下命令只能在 Ubuntu 虚拟机的项目目录中执行：
+
+```bash
+pnpm install --frozen-lockfile
+pnpm lint
+pnpm typecheck
+pnpm build
+pnpm start --hostname 127.0.0.1 --port 3000
+```
+
+`hello-server/` 中的最小 Node.js 服务继续保留，作为最初的部署链路验证样例。当前测试环境使用 Ubuntu 虚拟机运行正式 Next.js 应用，并通过 ngrok 提供临时 HTTPS 地址。
+
+## 虚拟机测试部署
+
+当前虚拟机部署脚本为：
+
+```text
+scripts/deploy-vm.sh
+```
+
+脚本会在当前用户目录准备 Node.js 22 和 pnpm、安装依赖、执行生产构建，并将 Next.js 启动在 `127.0.0.1:3000`。ngrok 单独运行：
+
+```bash
+~/ngrok http 3000
+```
+
+ngrok 免费隧道地址可能在重启后变化，可在虚拟机中查询：
+
+```bash
+curl http://127.0.0.1:4040/api/tunnels
+```

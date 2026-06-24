@@ -2,23 +2,27 @@
 
 ## Phase 0：准备环境
 
-目标：让 Windows 本机和 Ubuntu 虚拟机都具备开发/部署基础。
+目标：Windows 本机只承担源码编辑，Ubuntu 虚拟机承担所有运行、验证和部署。
 
 Windows 本机：
-- 确认 Node.js LTS 可用。
 - 确认 Git 可用。
 - 项目路径保持为 `D:\Project\Web\JPLearn`。
 - 学习资料路径保持为 `D:\学习\日语`。
+- 只查看、书写和修改源码与项目文档。
+- 不安装项目依赖，不执行编译、构建、检查、测试、数据库操作、API 实际调用、服务启动或部署。
 
 Ubuntu 虚拟机：
 - 安装 Ubuntu Server 22.04 LTS 或 24.04 LTS。
 - 启用 OpenSSH Server。
 - 配置桥接网络或保证 Windows 可 SSH 访问。
+- 安装 Node.js LTS 和 pnpm。
 - 安装 Docker 和 Docker Compose。
+- 承担项目依赖安装、编译、构建、检查、测试、数据库操作、API 调用、启动和部署。
 
 验收：
-- Windows 可以运行 `node --version`、`npm --version`。
 - Windows 可以 `ssh 用户名@虚拟机IP`。
+- Windows 项目目录不产生本机运行或构建产物。
+- 虚拟机可以运行 `node --version` 和 `pnpm --version`。
 - 虚拟机可以运行 `docker --version` 和 `docker compose version`。
 
 ## Phase 1：初始化 Web 项目
@@ -33,9 +37,10 @@ Ubuntu 虚拟机：
 - 建立基础 Dockerfile 和 compose 文件。
 
 验收：
-- `npm run dev` 可启动。
+- 以下验收全部在 Ubuntu 虚拟机执行。
+- `pnpm dev` 可启动。
 - 首页可访问。
-- `npm run build` 通过。
+- `pnpm build` 通过。
 
 ## Phase 2：数据模型与导入
 
@@ -108,19 +113,21 @@ Ubuntu 虚拟机：
 
 ## Phase 6：虚拟机部署
 
-目标：验证 Linux 部署路径。
+目标：验证 Linux 部署路径，并通过 ngrok 提供测试访问。
 
 任务：
 - 把项目同步到 Ubuntu 虚拟机。
 - 配置 `.env`。
-- 用 Docker Compose 启动应用。
-- 挂载 SQLite 数据目录。
-- 在 Windows 浏览器访问虚拟机地址。
+- 当前开发阶段可直接使用 Node.js/pnpm 启动应用。
+- 使用 ngrok 将虚拟机的 `3000` 端口映射为临时 HTTPS 公网地址。
+- 在 Windows 和手机浏览器访问 ngrok 地址。
+- 数据库功能完成后再加入 Docker Compose 和 SQLite 数据目录挂载。
 
 验收：
 - 虚拟机上应用可启动。
-- Windows 可访问页面。
-- 数据库文件在容器重建后不丢失。
+- Windows 和非局域网手机可通过 ngrok HTTPS 地址访问页面。
+- 不依赖公网 IPv6、路由器端口转发或入站防火墙放行。
+- 数据库功能完成后，数据库文件在容器重建后不丢失。
 - AI 配置可用时能生成例句和批改。
 
 ## Phase 7：收尾与下一轮规划

@@ -17,7 +17,7 @@ The goal is to treat both vocabulary and grammar as practiceable knowledge point
 - Use DeepSeek v4 flash through an OpenAI-compatible API for example generation and sentence review.
 - Store practice attempts and mastery state with SQLite + Prisma.
 - Build the web app with Next.js, TypeScript, and Tailwind CSS.
-- Develop locally on Windows, validate deployment on an Ubuntu VM with Docker Compose, and keep the project portable to Linux servers.
+- Develop locally on Windows and validate deployment on an Ubuntu VM. During testing, expose the app through an ngrok HTTPS tunnel instead of direct IPv6 access.
 
 ## Current Source Material
 
@@ -26,4 +26,4 @@ The goal is to treat both vocabulary and grammar as practiceable knowledge point
 
 ## Project Status
 
-The project is currently in the design and MVP preparation stage. See the [`plan/`](./plan/) directory for detailed planning documents.
+The formal Next.js project has been initialized and VM deployment testing is underway. See the [`plan/`](./plan/) directory for detailed planning documents.

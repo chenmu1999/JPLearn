@@ -1,5 +1,12 @@
 # 技术设计文档
 
+## 开发与运行环境约束
+
+- Windows 本机工作区只用于查看、书写和修改源码及项目文档。
+- Windows 本机不得安装项目依赖，也不得执行编译、构建、类型检查、Lint、测试、数据库操作、AI API 实际调用、服务启动、容器构建或部署。
+- 所有运行时操作必须在 Ubuntu 虚拟机完成，包括依赖安装、构建验证、数据库迁移、DeepSeek API 联调和 ngrok 部署。
+- Windows 完成源码修改后，应先同步到 Ubuntu 虚拟机，再进行任何技术验证。
+
 ## 技术栈
 
 - Runtime：Node.js LTS。
@@ -255,12 +262,18 @@ DATABASE_URL="file:./dev.db"
 OPENAI_API_KEY=""
 OPENAI_BASE_URL=""
 OPENAI_MODEL="deepseek-v4-flash"
+AI_VERIFY_TOKEN=""
 ```
 
 如果缺少 AI 配置：
 - 知识点浏览可用。
 - 例句生成和批改按钮显示配置提示。
 - 服务不应崩溃。
+
+`POST /api/ai/verify` 仅用于部署联调，请求必须携带
+`x-ai-verify-token`，其值与 Ubuntu 虚拟机 `.env` 中的
+`AI_VERIFY_TOKEN` 一致。该令牌和 `OPENAI_API_KEY` 都不得写入源码或同步回
+Windows 工作区。
 
 ## 部署设计
 

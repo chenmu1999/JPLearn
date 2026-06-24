@@ -17,7 +17,7 @@ JPLearn は、日本語 N5 学習向けの Web ツールです。主に個人学
 - DeepSeek v4 flash を OpenAI 互換 API 経由で利用し、例文生成と作文添削を行う。
 - SQLite + Prisma で練習履歴と習得状態を保存する。
 - Next.js、TypeScript、Tailwind CSS で Web アプリを構築する。
-- Windows で開発し、Ubuntu 仮想マシンと Docker Compose でデプロイを検証し、将来的に Linux サーバーへ移行できるようにする。
+- Windows で開発し、Ubuntu 仮想マシンでデプロイを検証する。テスト期間中は IPv6 直接接続ではなく ngrok の HTTPS トンネルを利用する。
 
 ## 現在の資料規模
 
@@ -26,4 +26,4 @@ JPLearn は、日本語 N5 学習向けの Web ツールです。主に個人学
 
 ## プロジェクトの状態
 
-現在は設計と MVP 準備の段階です。詳しい計画は [`plan/`](./plan/) ディレクトリを参照してください。
+正式な Next.js プロジェクトは初期化済みで、現在は仮想マシンへのデプロイを検証しています。詳しい計画は [`plan/`](./plan/) ディレクトリを参照してください。
