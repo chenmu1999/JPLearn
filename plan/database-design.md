@@ -605,3 +605,22 @@ Batch 1 必须建立：
 AI 权益、例句用户状态和反馈可以在对应功能批次增加，但字段和关系按本文执行，不再重新设计。
 
 人工审核例句数据文件和导入器属于免费基础背词 MVP；即使覆盖尚未达到 100%，缺失词条的自动降级行为也必须同步实现。
+
+## 12. 实现状态与落地说明
+
+### 12.1 Batch 1 源码（已在 Windows 编写，待 Ubuntu 验证）
+
+- `prisma/schema.prisma`：实现第 11 节全部 14 个模型。
+- `src/lib/db/client.ts`：单例 `PrismaClient`。
+- `prisma/seed.ts`：幂等 upsert `local-user`。
+- `package.json`：新增 `@prisma/client`、`prisma`、`zod`、`tsx` 依赖与 `db:generate`/`db:migrate`/`db:deploy`/`db:seed` 脚本及 `prisma.seed` 配置。
+- `.env.example`：新增 `DATABASE_URL="file:./dev.db"`（相对 `prisma/` 解析为 `prisma/dev.db`，已在 `.gitignore` 忽略）。
+
+### 12.2 SQLite 枚举落地决策
+
+Prisma 的 SQLite 连接器不支持原生 `enum`。本文所有“枚举型”字段（`kind`、`formType`、`sourceType`、`status`、`assignmentType`、`sessionType`、`exerciseType`、`targetDimension`、`source`、`errorType` 等）在 schema 中实现为 `String`，取值范围沿用本文定义的稳定英文键，并在应用/服务层（后续批次的 `src/lib/vocabulary/config.ts` 与 Zod 校验）强制约束。切换 PostgreSQL 时可再评估改为原生枚举。
+
+### 12.3 级联与关系取舍
+
+- `VocabularySense`、`VocabularyAcceptedForm`、`VocabularyExample` 对 `VocabularyEntry` 设 `onDelete: Cascade`；但按第 8 节，有学习记录的词条默认不物理删除，级联仅用于清理纯派生内容。
+- `VocabularySessionItem.questionId`、`assignmentId`、`sourceItemId` 以及 `VocabularyQuestion`/`VocabularyAttempt` 上的 `assignmentId`、`sessionItemId` 等跨实体可选引用，第一版以标量字段保存，避免在会话/题目/作答之间形成循环关系；核心父子关系（用户、词条、会话、题目↔作答）仍为真实 Prisma 关系。

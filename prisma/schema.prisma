@@ -1,0 +1,345 @@
+// JPLearn vocabulary module — Batch 1 data foundation.
+// Authoritative model: plan/database-design.md. Keep this schema aligned with that doc.
+//
+// SQLite note: the Prisma sqlite connector does not support native enums, so all
+// "enum-like" columns are String fields whose allowed values are documented inline
+// and enforced in the application/service layer (see src/lib/vocabulary/config.ts,
+// landing in a later batch). String keys are the same stable values the design uses.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------------------
+// User & cross-module knowledge
+// ---------------------------------------------------------------------------
+
+model UserProfile {
+  id          String   @id
+  displayName String
+  timezone    String   @default("Asia/Shanghai")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  masteryStates       MasteryState[]
+  vocabularyMasteries VocabularyMastery[]
+  studyPlans          VocabularyStudyPlan[]
+  dailyAssignments    VocabularyDailyAssignment[]
+  studySessions       VocabularyStudySession[]
+  questions           VocabularyQuestion[]
+  attempts            VocabularyAttempt[]
+}
+
+// Cross-module index for both vocabulary and grammar. Does not carry word-learning detail.
+model KnowledgePoint {
+  id         String   @id @default(cuid())
+  kind       String // VOCABULARY, GRAMMAR
+  level      String
+  sourceName String?
+  sourceKey  String   @unique
+  title      String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  masteryStates   MasteryState[]
+  vocabularyEntry VocabularyEntry?
+}
+
+// Generic mastery, only for grammar / legacy comprehensive knowledge points.
+// Vocabulary never writes here; it uses VocabularyMastery instead.
+model MasteryState {
+  id               String    @id @default(cuid())
+  userId           String
+  knowledgePointId String
+  masteryScore     Int       @default(0)
+  correctCount     Int       @default(0)
+  wrongCount       Int       @default(0)
+  isMastered       Boolean   @default(false)
+  lastPracticedAt  DateTime?
+  masteredAt       DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  user           UserProfile    @relation(fields: [userId], references: [id])
+  knowledgePoint KnowledgePoint @relation(fields: [knowledgePointId], references: [id])
+
+  @@unique([userId, knowledgePointId])
+}
+
+// ---------------------------------------------------------------------------
+// Vocabulary base data
+// ---------------------------------------------------------------------------
+
+// One source CSV row => one independently learnable VocabularyEntry.
+model VocabularyEntry {
+  id               String   @id @default(cuid())
+  knowledgePointId String   @unique
+  sourceKey        String   @unique
+  sourceGuid       String?
+  level            String
+  lemma            String
+  primaryWriting   String
+  primaryReading   String
+  partOfSpeech     String?
+  category         String?
+  meaningEn        String?
+  usageNoteZh      String?
+  rawDataJson      String?
+  isActive         Boolean  @default(true)
+  sourceOrder      Int
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  knowledgePoint   KnowledgePoint              @relation(fields: [knowledgePointId], references: [id])
+  senses           VocabularySense[]
+  acceptedForms    VocabularyAcceptedForm[]
+  examples         VocabularyExample[]
+  masteries        VocabularyMastery[]
+  dailyAssignments VocabularyDailyAssignment[]
+  sessionItems     VocabularySessionItem[]
+  questions        VocabularyQuestion[]
+  attempts         VocabularyAttempt[]
+
+  @@unique([level, sourceOrder])
+  @@index([primaryWriting])
+  @@index([primaryReading])
+}
+
+model VocabularySense {
+  id           String   @id @default(cuid())
+  vocabularyId String
+  meaningZh    String
+  order        Int
+  isPrimary    Boolean  @default(false)
+  noteZh       String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  vocabulary VocabularyEntry @relation(fields: [vocabularyId], references: [id], onDelete: Cascade)
+
+  @@unique([vocabularyId, order])
+  @@index([meaningZh])
+}
+
+// Only legal readings and writings live here; meanings stay in VocabularySense.
+model VocabularyAcceptedForm {
+  id           String   @id @default(cuid())
+  vocabularyId String
+  formType     String // READING, WRITING
+  value        String
+  isPrimary    Boolean  @default(false)
+  noteZh       String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  vocabulary VocabularyEntry @relation(fields: [vocabularyId], references: [id], onDelete: Cascade)
+
+  @@unique([vocabularyId, formType, value])
+}
+
+// Shared example content: default (SOURCE/CURATED) and AI examples.
+// User-level favorite/hidden state is NOT stored here (see VocabularyExampleUserState, later batch).
+model VocabularyExample {
+  id                      String   @id @default(cuid())
+  vocabularyId            String
+  sourceType              String // SOURCE, CURATED, AI
+  status                  String   @default("ACTIVE") // ACTIVE, FLAGGED
+  japanese                String
+  chinese                 String?
+  targetSurface           String?
+  usageNoteZh             String?
+  difficulty              String?
+  isDefault               Boolean  @default(false)
+  model                   String?
+  promptVersion           String?
+  generationContextJson   String?
+  introducedKnowledgeJson String?
+  rawAiResponse           String?
+  createdByUserId         String?
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
+
+  vocabulary VocabularyEntry @relation(fields: [vocabularyId], references: [id], onDelete: Cascade)
+
+  @@index([vocabularyId, isDefault, status])
+}
+
+// ---------------------------------------------------------------------------
+// Vocabulary learning data
+// ---------------------------------------------------------------------------
+
+model VocabularyMastery {
+  id                      String    @id @default(cuid())
+  userId                  String
+  vocabularyId            String
+  status                  String    @default("NEW") // NEW, LEARNING, REVIEWING, MASTERED
+  readingScore            Int       @default(0)
+  spellingScore           Int       @default(0)
+  meaningScore            Int       @default(0)
+  writingScore            Int       @default(0)
+  contextScore            Int       @default(0)
+  reviewStage             Int       @default(0)
+  nextReviewAt            DateTime?
+  lastReviewedAt          DateTime?
+  lastInputCorrectAt      DateTime?
+  lastInputWrongAt        DateTime?
+  consecutiveCorrectCount Int       @default(0)
+  consecutiveWrongCount   Int       @default(0)
+  masteredAt              DateTime?
+  isFavorite              Boolean   @default(false)
+  isSuspended             Boolean   @default(false)
+  createdAt               DateTime  @default(now())
+  updatedAt               DateTime  @updatedAt
+
+  user       UserProfile     @relation(fields: [userId], references: [id])
+  vocabulary VocabularyEntry @relation(fields: [vocabularyId], references: [id])
+
+  @@unique([userId, vocabularyId])
+  @@index([userId, status, isSuspended])
+  @@index([userId, nextReviewAt, isSuspended])
+}
+
+model VocabularyStudyPlan {
+  id                String    @id @default(cuid())
+  userId            String
+  level             String    @default("N5")
+  dailyNewCount     Int       @default(10)
+  timezone          String    @default("Asia/Shanghai")
+  isActive          Boolean   @default(true)
+  startedAt         DateTime  @default(now())
+  targetCompletedAt DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  user UserProfile @relation(fields: [userId], references: [id])
+
+  @@index([userId, isActive])
+}
+
+model VocabularyDailyAssignment {
+  id             String    @id @default(cuid())
+  userId         String
+  localDate      String // YYYY-MM-DD in the plan timezone
+  vocabularyId   String
+  assignmentType String // NEW, REVIEW
+  order          Int
+  completedAt    DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  user       UserProfile     @relation(fields: [userId], references: [id])
+  vocabulary VocabularyEntry @relation(fields: [vocabularyId], references: [id])
+
+  @@unique([userId, localDate, vocabularyId, assignmentType])
+  @@unique([userId, localDate, assignmentType, order])
+}
+
+// A resumable round of learning / review.
+model VocabularyStudySession {
+  id                 String    @id @default(cuid())
+  userId             String
+  sessionType        String // LEARN, REVIEW, WRONG_BOOK
+  localDate          String
+  status             String    @default("ACTIVE") // ACTIVE, COMPLETED, ABANDONED
+  completedItemCount Int       @default(0)
+  startedAt          DateTime  @default(now())
+  lastActivityAt     DateTime  @default(now())
+  completedAt        DateTime?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  user     UserProfile             @relation(fields: [userId], references: [id])
+  items    VocabularySessionItem[]
+  attempts VocabularyAttempt[]
+
+  @@index([userId, status, sessionType])
+}
+
+// One planned question slot in a session. Retries on wrong answers add new items.
+model VocabularySessionItem {
+  id                           String   @id @default(cuid())
+  sessionId                    String
+  vocabularyId                 String
+  assignmentId                 String?
+  sourceItemId                 String? // the first item this retry derives from
+  sequence                     Int
+  attemptNo                    Int      @default(0)
+  availableAfterCompletedCount Int      @default(0)
+  exerciseType                 String
+  targetDimension              String
+  status                       String   @default("PENDING") // PENDING, ISSUED, CORRECT, INCORRECT, SKIPPED
+  questionId                   String? // currently issued question, if any
+  createdAt                    DateTime @default(now())
+  updatedAt                    DateTime @updatedAt
+
+  session    VocabularyStudySession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  vocabulary VocabularyEntry        @relation(fields: [vocabularyId], references: [id])
+
+  @@unique([sessionId, sequence])
+  @@index([sessionId, status, sequence])
+  @@index([sessionId, availableAfterCompletedCount, sequence])
+}
+
+// Server-issued short-lived question instance. acceptedAnswersJson is server-only.
+model VocabularyQuestion {
+  id                 String    @id @default(cuid())
+  userId             String
+  vocabularyId       String
+  assignmentId       String?
+  sessionItemId      String?
+  exerciseType       String
+  targetDimension    String
+  promptJson         String
+  optionsJson        String?
+  acceptedAnswersJson String
+  status             String    @default("ISSUED") // ISSUED, ANSWERED, EXPIRED
+  issuedAt           DateTime  @default(now())
+  expiresAt          DateTime
+  answeredAt         DateTime?
+  createdAt          DateTime  @default(now())
+
+  user       UserProfile     @relation(fields: [userId], references: [id])
+  vocabulary VocabularyEntry @relation(fields: [vocabularyId], references: [id])
+  attempt    VocabularyAttempt?
+
+  @@index([userId, status, expiresAt])
+}
+
+model VocabularyAttempt {
+  id                 String    @id @default(cuid())
+  questionId         String    @unique
+  userId             String
+  vocabularyId       String
+  assignmentId       String?
+  sessionId          String?
+  sessionItemId      String?
+  source             String // LEARN, REVIEW, WRONG_BOOK, COMPREHENSIVE
+  exerciseType       String
+  targetDimension    String
+  promptSnapshotJson String?
+  userAnswer         String
+  acceptedAnswer     String?
+  isCorrect          Boolean
+  usedHint           Boolean   @default(false)
+  responseTimeMs     Int?
+  errorType          String?
+  scoreBefore        Int?
+  scoreAfter         Int?
+  reviewStageBefore  Int?
+  reviewStageAfter   Int?
+  nextReviewAtAfter  DateTime?
+  createdAt          DateTime  @default(now())
+
+  question   VocabularyQuestion      @relation(fields: [questionId], references: [id])
+  user       UserProfile             @relation(fields: [userId], references: [id])
+  vocabulary VocabularyEntry         @relation(fields: [vocabularyId], references: [id])
+  session    VocabularyStudySession? @relation(fields: [sessionId], references: [id])
+
+  @@index([userId, vocabularyId, createdAt])
+  @@index([userId, errorType, createdAt])
+}
