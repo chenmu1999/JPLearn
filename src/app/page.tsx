@@ -1,22 +1,23 @@
 import Link from "next/link";
 
-import { ChatPanel } from "@/components/chat-panel";
-
 const plannedFeatures = [
   {
-    label: "知识点",
-    title: "系统整理 N5 内容",
-    description: "统一浏览 644 个词汇与 84 个语法点。",
+    label: "单词本",
+    title: "JLPT N5 词汇",
+    description: "浏览、搜索和按掌握状态筛选 718 个 N5 单词。",
+    href: "/vocabulary/book",
   },
   {
     label: "练习",
     title: "从理解走向表达",
     description: "围绕薄弱知识点阅读例句并主动造句。",
+    href: null,
   },
   {
     label: "反馈",
     title: "看见每一步进步",
-    description: "通过 AI 批改和掌握度记录形成学习闭环。",
+    description: "通过掌握度记录和复习调度形成学习闭环。",
+    href: null,
   },
 ];
 
@@ -31,9 +32,7 @@ export default function Home() {
             </span>
             <div>
               <p className="text-lg font-bold tracking-tight">JPLearn</p>
-              <p className="text-xs text-[#17241d]/60">
-                日本語を、少しずつ。
-              </p>
+              <p className="text-xs text-[#17241d]/60">日本語を、少しずつ。</p>
             </div>
           </div>
           <div className="flex items-center gap-3">
@@ -64,12 +63,12 @@ export default function Home() {
             </p>
 
             <div className="mt-9 flex flex-wrap items-center gap-4">
-              <a
-                href="#chat"
+              <Link
+                href="/vocabulary/book"
                 className="rounded-full bg-[#17241d] px-6 py-3 text-sm font-bold text-white transition hover:bg-[#24705a]"
               >
-                开始对话
-              </a>
+                打开单词本
+              </Link>
               <span className="text-sm text-[#17241d]/55">
                 Next.js · TypeScript · Tailwind CSS
               </span>
@@ -95,42 +94,26 @@ export default function Home() {
           </div>
         </section>
 
-        <section className="grid gap-8 border-t border-[#17241d]/15 py-12 lg:grid-cols-[0.7fr_1.3fr] lg:items-start lg:py-16">
-          <div className="lg:sticky lg:top-8">
-            <p className="text-sm font-bold uppercase tracking-[0.22em] text-[#d94f3d]">
-              Talk, ask, practice
-            </p>
-            <h2 className="mt-4 text-4xl font-black leading-tight tracking-[-0.03em]">
-              有问题，
-              <span className="block text-[#24705a]">现在就用日语聊。</span>
-            </h2>
-            <p className="mt-5 max-w-md text-sm leading-7 text-[#17241d]/60">
-              这是临时测试对话。当前页面会保留最近的上下文，刷新后清空，不会写入数据库。
-            </p>
-          </div>
-          <ChatPanel />
-        </section>
-
         <section className="grid gap-4 border-t border-[#17241d]/15 pt-8 md:grid-cols-3">
-          {plannedFeatures.map((feature, index) => (
-            <article
-              key={feature.label}
-              className="rounded-3xl border border-[#17241d]/10 bg-white/55 p-6"
-            >
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-bold text-[#d94f3d]">
-                  {feature.label}
-                </span>
-                <span className="text-xs text-[#17241d]/35">
-                  0{index + 1}
-                </span>
-              </div>
-              <h2 className="mt-6 text-xl font-bold">{feature.title}</h2>
-              <p className="mt-2 text-sm leading-6 text-[#17241d]/60">
-                {feature.description}
-              </p>
-            </article>
-          ))}
+          {plannedFeatures.map((feature, index) => {
+            const card = (
+              <article className="h-full rounded-3xl border border-[#17241d]/10 bg-white/55 p-6 transition hover:border-[#24705a]">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-bold text-[#d94f3d]">{feature.label}</span>
+                  <span className="text-xs text-[#17241d]/35">0{index + 1}</span>
+                </div>
+                <h2 className="mt-6 text-xl font-bold">{feature.title}</h2>
+                <p className="mt-2 text-sm leading-6 text-[#17241d]/60">{feature.description}</p>
+              </article>
+            );
+            return feature.href ? (
+              <Link key={feature.label} href={feature.href} className="block">
+                {card}
+              </Link>
+            ) : (
+              <div key={feature.label}>{card}</div>
+            );
+          })}
         </section>
       </div>
     </main>
