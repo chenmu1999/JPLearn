@@ -33,27 +33,33 @@ export function VocabularyDetailView({ id }: { id: string }) {
 
   useEffect(() => {
     const controller = new AbortController();
-    setLoadState("loading");
 
-    fetch(`/api/vocabulary/${encodeURIComponent(id)}`, { signal: controller.signal })
-      .then(async (res) => {
-        const body = await res.json().catch(() => null);
-        if (res.status === 401) return setLoadState("unauthorized");
-        if (res.status === 404) return setLoadState("notfound");
-        if (!res.ok || !body?.ok) {
-          setErrorMessage(body?.message ?? "加载失败，请稍后重试。");
-          return setLoadState("error");
-        }
-        setItem(body.item);
-        setLoadState("ready");
-      })
-      .catch((error) => {
-        if (controller.signal.aborted) return;
-        console.error(error);
-        setErrorMessage("网络异常，请检查连接后重试。");
-        setLoadState("error");
-      });
+    // Nested function so the setState calls run asynchronously, not synchronously
+    // in the effect body.
+    const run = () => {
+      setLoadState("loading");
 
+      fetch(`/api/vocabulary/${encodeURIComponent(id)}`, { signal: controller.signal })
+        .then(async (res) => {
+          const body = await res.json().catch(() => null);
+          if (res.status === 401) return setLoadState("unauthorized");
+          if (res.status === 404) return setLoadState("notfound");
+          if (!res.ok || !body?.ok) {
+            setErrorMessage(body?.message ?? "加载失败，请稍后重试。");
+            return setLoadState("error");
+          }
+          setItem(body.item);
+          setLoadState("ready");
+        })
+        .catch((error) => {
+          if (controller.signal.aborted) return;
+          console.error(error);
+          setErrorMessage("网络异常，请检查连接后重试。");
+          setLoadState("error");
+        });
+    };
+
+    run();
     return () => controller.abort();
   }, [id]);
 

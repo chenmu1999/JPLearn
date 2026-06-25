@@ -54,52 +54,53 @@ export function VocabularyBook() {
     return () => clearTimeout(timer);
   }, [query]);
 
-  // Reset to page 1 whenever the filters change.
-  useEffect(() => {
-    setPage(1);
-  }, [debouncedQuery, status, sort]);
-
   const requestId = useRef(0);
   useEffect(() => {
     const id = ++requestId.current;
     const controller = new AbortController();
-    setLoadState("loading");
 
-    const params = new URLSearchParams();
-    if (debouncedQuery) params.set("q", debouncedQuery);
-    if (status) params.set("status", status);
-    params.set("sort", sort);
-    params.set("page", String(page));
+    // Keep the fetch (and its setState calls) inside a nested function so they
+    // run asynchronously rather than synchronously in the effect body.
+    const run = () => {
+      setLoadState("loading");
 
-    fetch(`/api/vocabulary?${params.toString()}`, { signal: controller.signal })
-      .then(async (res) => {
-        const body = await res.json().catch(() => null);
-        if (id !== requestId.current) return;
-        if (res.status === 401) {
-          setLoadState("unauthorized");
-          return;
-        }
-        if (!res.ok || !body?.ok) {
-          setErrorMessage(body?.message ?? "加载失败，请稍后重试。");
+      const params = new URLSearchParams();
+      if (debouncedQuery) params.set("q", debouncedQuery);
+      if (status) params.set("status", status);
+      params.set("sort", sort);
+      params.set("page", String(page));
+
+      fetch(`/api/vocabulary?${params.toString()}`, { signal: controller.signal })
+        .then(async (res) => {
+          const body = await res.json().catch(() => null);
+          if (id !== requestId.current) return;
+          if (res.status === 401) {
+            setLoadState("unauthorized");
+            return;
+          }
+          if (!res.ok || !body?.ok) {
+            setErrorMessage(body?.message ?? "加载失败，请稍后重试。");
+            setLoadState("error");
+            return;
+          }
+          setData({
+            items: body.items,
+            page: body.page,
+            pageSize: body.pageSize,
+            total: body.total,
+            totalPages: body.totalPages,
+          });
+          setLoadState("ready");
+        })
+        .catch((error) => {
+          if (controller.signal.aborted || id !== requestId.current) return;
+          console.error(error);
+          setErrorMessage("网络异常，请检查连接后重试。");
           setLoadState("error");
-          return;
-        }
-        setData({
-          items: body.items,
-          page: body.page,
-          pageSize: body.pageSize,
-          total: body.total,
-          totalPages: body.totalPages,
         });
-        setLoadState("ready");
-      })
-      .catch((error) => {
-        if (controller.signal.aborted || id !== requestId.current) return;
-        console.error(error);
-        setErrorMessage("网络异常，请检查连接后重试。");
-        setLoadState("error");
-      });
+    };
 
+    run();
     return () => controller.abort();
   }, [debouncedQuery, status, sort, page, reloadNonce]);
 
@@ -109,7 +110,10 @@ export function VocabularyBook() {
         <input
           type="search"
           value={query}
-          onChange={(e) => setQuery(e.target.value)}
+          onChange={(e) => {
+            setQuery(e.target.value);
+            setPage(1);
+          }}
           placeholder="搜索汉字、假名或中文含义（如 学校 / がっこう / 学校）"
           className="w-full rounded-2xl border border-[#17241d]/15 bg-white/70 px-5 py-3 text-base outline-none focus:border-[#24705a]"
           aria-label="搜索单词"
@@ -120,7 +124,10 @@ export function VocabularyBook() {
             <button
               key={f.value || "all"}
               type="button"
-              onClick={() => setStatus(f.value)}
+              onClick={() => {
+                setStatus(f.value);
+                setPage(1);
+              }}
               className={`rounded-full px-4 py-1.5 text-sm font-medium transition ${
                 status === f.value
                   ? "bg-[#17241d] text-white"
@@ -132,7 +139,10 @@ export function VocabularyBook() {
           ))}
           <select
             value={sort}
-            onChange={(e) => setSort(e.target.value)}
+            onChange={(e) => {
+              setSort(e.target.value);
+              setPage(1);
+            }}
             className="ml-auto rounded-full border border-[#17241d]/15 bg-white/60 px-4 py-1.5 text-sm"
             aria-label="排序方式"
           >
