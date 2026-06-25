@@ -168,5 +168,50 @@ export interface LearnNextDTO {
   done: boolean;
   remaining: number;
   assignmentId: string | null;
+  sessionItemId: string | null;
   card: VocabularyDetail | null;
+  question: QuestionDTO | null;
+}
+
+// --- Objective quiz DTOs (Batch 5) ---
+
+export interface QuestionPrompt {
+  writing?: string;
+  reading?: string;
+  meaningZh?: string;
+  context?: string;
+}
+
+export interface QuestionOption {
+  id: string;
+  text: string;
+}
+
+export interface QuestionDTO {
+  questionId: string;
+  exerciseType: ExerciseType;
+  targetDimension: VocabularyDimension;
+  prompt: QuestionPrompt;
+  options: QuestionOption[] | null;
+}
+
+export interface SessionDTO {
+  sessionId: string;
+  sessionType: string;
+  localDate: string;
+  status: string;
+  totalCount: number;
+  pendingCount: number;
+}
+
+export interface AttemptResultDTO {
+  attemptId: string;
+  isCorrect: boolean;
+  errorType: ErrorType | null;
+  acceptedAnswer: string;
+  scoreBefore: number;
+  scoreAfter: number;
+  remainingCount: number;
+  sessionComplete: boolean;
+  nextReviewAt: string | null;
 }

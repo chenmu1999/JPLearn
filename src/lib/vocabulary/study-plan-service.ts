@@ -257,13 +257,22 @@ export async function getNextNewCard(userId: string): Promise<LearnNextDTO> {
   const remaining = assignments.filter((a) => !a.completedAt);
   const next = remaining[0];
   if (!next) {
-    return { done: true, remaining: 0, assignmentId: null, card: null };
+    return {
+      done: true,
+      remaining: 0,
+      assignmentId: null,
+      sessionItemId: null,
+      card: null,
+      question: null,
+    };
   }
   const card = await getVocabularyDetail(next.vocabularyId, userId);
   return {
     done: false,
     remaining: remaining.length,
     assignmentId: next.id,
+    sessionItemId: null,
     card,
+    question: null,
   };
 }
