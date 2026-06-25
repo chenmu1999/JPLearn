@@ -1,5 +1,7 @@
 # 项目架构设计
 
+> 数据模型已在 `database-design.md` 定稿。本文中的模块职责必须遵守该文档；旧的“所有知识点共用一个掌握模型”不再适用于单词模块。
+
 ## 架构目标
 
 JPLearn 第一版采用单体 Web 应用架构：Next.js 同时承载页面、API、数据访问和 AI 调用。这样本机开发简单，部署到 Ubuntu 虚拟机也直接；同时通过清晰的模块边界保留后续拆分能力。
@@ -22,6 +24,14 @@ app/
   knowledge/page.tsx
   knowledge/[id]/page.tsx
   settings/page.tsx
+  vocabulary/
+    page.tsx
+    learn/page.tsx
+    review/page.tsx
+    book/page.tsx
+    wrong/page.tsx
+    settings/page.tsx
+    [id]/page.tsx
   api/
     knowledge/route.ts
     knowledge/[id]/route.ts
@@ -43,6 +53,7 @@ lib/
   knowledge/
   mastery/
   practice/
+  vocabulary/
   validation/
 
 prisma/
@@ -95,11 +106,13 @@ plan/
 负责资料导入。
 
 职责：
-- 读取 N5 词汇 CSV。
+- 读取 `data/vocabulary/jlpt/jlpt-vocabulary.csv` 并筛选 N5。
 - 读取 N5 语法 CSV。
-- 映射为统一知识点结构。
-- 初始化每个知识点的掌握状态。
+- 词汇映射为 `KnowledgePoint + VocabularyEntry + VocabularySense + VocabularyAcceptedForm`。
+- 语法映射为通用知识点结构。
 - 保证重复运行导入脚本不会制造重复数据。
+
+词汇导入不预创建所有用户的掌握记录；`VocabularyMastery` 在首次分配、查询或操作时按需创建。
 
 ### `lib/knowledge`
 
@@ -144,7 +157,7 @@ plan/
 
 ### `lib/mastery`
 
-负责掌握度规则。
+负责语法和旧综合知识点的通用掌握度规则。
 
 职责：
 - 根据批改结果更新正确/错误次数。
@@ -154,7 +167,26 @@ plan/
 - 记录最近练习时间和掌握时间。
 - 支持手动重置掌握状态。
 
-掌握规则集中放在这里，避免散落在 API 或页面里。
+单词不调用该模块，单词分维度掌握与复习规则由 `lib/vocabulary` 负责。
+
+### `lib/vocabulary`
+
+负责单词模块完整业务边界。
+
+职责：
+
+- 词条、义项、合法读音和表记查询。
+- 学习计划与按时区生成每日固定分配。
+- 创建和恢复 `VocabularyStudySession` 与持久化会话题目队列。
+- 创建服务端 `VocabularyQuestion`，不向客户端暴露答案。
+- 客观题判定、假名错误分类和幂等作答。
+- 在事务中写入 `VocabularyAttempt`、更新 `VocabularyMastery`、会话队列和每日任务。
+- 根据薄弱维度和到期时间安排复习。
+- 严格排除同表记、同读音干扰项；候选不足时切换题型。
+- 无有效例句时跳过语境题，并管理人工例句覆盖。
+- 管理默认例句、AI 例句及用户级收藏、隐藏和反馈。
+
+该模块内部继续区分 repository、纯逻辑规则和业务 service；页面和组件不能直接访问 Prisma。
 
 ### `lib/validation`
 
@@ -216,6 +248,21 @@ scripts/import-n5-data.ts -> lib/import -> Prisma
 
 导入脚本只在开发、初始化或资料更新时运行，不在用户访问页面时运行。
 
+### 单词学习
+
+```text
+Page -> vocabulary API -> lib/vocabulary service -> Prisma -> Response
+```
+
+流程：
+
+1. 服务端读取或创建当日固定分配，并创建或恢复活动学习会话。
+2. 从持久化会话项目生成并保存短期 `VocabularyQuestion`。
+3. 客户端提交 `questionId` 和答案。
+4. 服务端判题并分类错误。
+5. 在同一事务中保存 `VocabularyAttempt`、更新分维度掌握、会话重试队列、复习时间和任务进度。
+6. 返回结果和下一题导航，不让客户端指定分数或正确性。
+
 ## 错误处理边界
 
 - AI 配置缺失：页面可浏览，生成和批改接口返回明确配置错误。
@@ -226,7 +273,7 @@ scripts/import-n5-data.ts -> lib/import -> Prisma
 
 ## 后续扩展点
 
-- 多用户：在 `PracticeAttempt` 和 `MasteryState` 增加 `userId`，并引入认证模块。
+- 多用户：核心学习表从第一版起均保留 `userId`，公开服务阶段替换临时 Session 和默认用户。
 - PostgreSQL：保持 Prisma 模型不变，替换 `DATABASE_URL` 和迁移配置。
 - 更多等级资料：导入模块增加 `level` 字段和不同资料源映射。
-- 更多练习模式：在 `lib/practice` 下增加卡片、选择题、听写等模式，但复用 `KnowledgePoint` 和 `MasteryState`。
+- 更多练习模式：语法与综合练习扩展 `lib/practice`；单词卡片、选择题和听写扩展 `lib/vocabulary`，复用 `VocabularyMastery` 和 `VocabularyAttempt`。

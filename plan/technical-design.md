@@ -51,11 +51,11 @@ plan/
 
 ## 数据模型
 
-详细 Prisma schema 草案、字段约束、索引和导入幂等策略见 `database-design.md`。本节只保留核心模型摘要。
+详细模型、字段约束、索引和导入幂等策略已在 `database-design.md` 定稿，本节只保留边界摘要。
 
 ### KnowledgePoint
 
-统一表示词汇和语法。
+统一表示词汇和语法的跨模块索引，不承载单词学习细节。
 
 关键字段：
 - `id`
@@ -75,14 +75,7 @@ plan/
 - `createdAt`
 - `updatedAt`
 
-词汇字段映射：
-- `word -> title`
-- `kana -> reading`
-- `romaji -> romaji`
-- `type_zh -> partOfSpeechZh`
-- `zh -> meaningZh`
-- `english -> meaningEn`
-- `type -> partOfSpeechEn`
+词汇一对一关联 `VocabularyEntry`。统一词表的一行对应一个来源词条；同形同音但来源义项不同的行第一版不自动合并。
 
 语法字段映射：
 - `Grammar -> title`
@@ -141,7 +134,7 @@ plan/
 
 ### MasteryState
 
-保存掌握度。
+只保存语法和旧综合知识点掌握度。单词不使用该模型。
 
 关键字段：
 - `id`
@@ -153,7 +146,28 @@ plan/
 - `lastPracticedAt`
 - `masteredAt`
 
+### 单词专用模型
+
+- `VocabularyEntry`：来源词条本体。
+- `VocabularySense`：中文义项。
+- `VocabularyAcceptedForm`：合法读音与表记。
+- `VocabularyExample`：公共默认、人工和 AI 例句。
+- `VocabularyExampleUserState`：用户级例句收藏与隐藏。
+- `VocabularyMastery`：读音、拼写、词义、表记和语境分维度掌握状态。
+- `VocabularyStudyPlan`：每日新词数量和学习时区。
+- `VocabularyDailyAssignment`：稳定的每日新词与复习分配。
+- `VocabularyStudySession`：一轮学习、复习或错词专项的可恢复状态。
+- `VocabularySessionItem`：持久化题序、延迟重试和每词重试次数。
+- `VocabularyQuestion`：服务端短期题目实例和标准答案。
+- `VocabularyAttempt`：客观题作答及调度快照。
+
+第一版导入 `data/vocabulary/jlpt/jlpt-vocabulary.csv` 中的 718 条 N5 来源词条。导入时不预创建全部 `VocabularyMastery`，用户首次分配、查询或操作时按需创建。
+
+人工审核例句使用独立受控数据文件导入。没有有效例句的词条跳过语境题；选择题永远排除与目标词同表记或同读音的候选，候选不足时切换题型。
+
 ## API 设计
+
+通用知识点 API 服务语法和综合学习；单词使用独立的 `/api/vocabulary/*` API。单词作答只允许客户端提交 `questionId`、答案、提示使用情况和响应耗时，正确性、错误类型、分数与复习时间全部由服务端生成。
 
 ### `GET /api/knowledge`
 
@@ -252,6 +266,8 @@ plan/
 - 词汇拼写错误只扣对应词汇；如果语法结构正确，对应语法仍然加分。
 - 语法小错也扣对应语法，例如漏掉主题助词「は」。
 - 理解类练习也使用同一规则：理解正确 `+20`，理解错误 `-10`。
+
+以上统一评分规则只用于语法和通用 AI 批改。单词客观题由程序判定，使用 `VocabularyMastery` 的分维度分数与固定阶段复习规则，不由 AI 返回加减分。
 
 ## 配置
 

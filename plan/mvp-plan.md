@@ -1,5 +1,7 @@
 # 日语学习工具 MVP 计划
 
+> 本文保留最初 MVP 背景。词汇数据源、单词数据模型和掌握规则已经被 `database-design.md`、`vocabulary-module-design.md` 与 `vocabulary-module-execution-plan.md` 取代，不再作为单词模块实现依据。
+
 ## Summary
 
 构建一个可本机运行、可迁移到 Linux 的 Web 学习工具。第一版采用“本机单用户 + DeepSeek v4 flash/OpenAI 兼容 API + 针对性题型练习”闭环：导入现有 N5 词汇和语法资料，把每个词汇/语法都作为知识点，按知识点类型生成接近真题格式的练习，AI 批改，并用 0-100 分的掌握分数追踪每个知识点。
@@ -16,7 +18,7 @@
   - 部署：提供 Dockerfile 和 compose 配置，Linux 服务器可直接部署。
 
 - 数据导入：
-  - 从 `D:\学习\日语\词汇\JLPT_N5_常用核心词汇表.csv` 导入 644 个词汇知识点。
+  - 第一版实际改为从仓库统一词表导入 718 个 N5 来源词条。
   - 从 `D:\学习\日语\语法\日语N5语法知识点大纲.csv` 导入 84 个语法知识点。
   - TXT 说明文件暂不作为数据源，因为读取存在编码乱码；Markdown 只作为参考资料保留。
 
@@ -45,7 +47,7 @@
 ## Test Plan
 
 - 数据导入测试：
-  - 确认导入后词汇为 644 条、语法为 84 条。
+  - 当前验收基线为 N5 词汇来源词条 718 条、语法 84 条。
   - 抽查词汇字段：`word/kana/type_zh/zh/english` 正确进入数据库。
   - 抽查语法字段：`Grammar/Category/Pattern/Meaning/Example/Note` 正确进入数据库。
 
