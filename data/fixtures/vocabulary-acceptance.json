@@ -1,0 +1,216 @@
+{
+  "description": "20 representative N5 source entries used to verify the importer's mapping (lemma, primary forms, accepted reading/writing splitting, meaning) and the kana phenomena coverage required by plan/vocabulary-module-execution-plan.md §6.1. Expected values reflect importer output AFTER cleaning (parenthetical annotations stripped, ';'/'；' split into multiple accepted forms). meaningZhContains is a substring assertion, not the full string.",
+  "level": "N5",
+  "samples": [
+    {
+      "sourceKey": "jlpt-n5-0001",
+      "lemma": "ああ",
+      "primaryWriting": "ああ",
+      "primaryReading": "ああ",
+      "acceptedWritings": ["ああ"],
+      "acceptedReadings": ["ああ"],
+      "meaningZhContains": "啊",
+      "covers": ["pure-kana", "long-vowel"]
+    },
+    {
+      "sourceKey": "jlpt-n5-0437",
+      "lemma": "テレビ",
+      "primaryWriting": "テレビ",
+      "primaryReading": "テレビ",
+      "acceptedWritings": ["テレビ"],
+      "acceptedReadings": ["テレビ"],
+      "meaningZhContains": "电视",
+      "covers": ["katakana", "dakuon"]
+    },
+    {
+      "sourceKey": "jlpt-n5-0251",
+      "lemma": "コーヒー",
+      "primaryWriting": "コーヒー",
+      "primaryReading": "コーヒー",
+      "acceptedWritings": ["コーヒー"],
+      "acceptedReadings": ["コーヒー"],
+      "meaningZhContains": "咖啡",
+      "covers": ["katakana", "long-vowel"]
+    },
+    {
+      "sourceKey": "jlpt-n5-0156",
+      "lemma": "学生",
+      "primaryWriting": "学生",
+      "primaryReading": "がくせい",
+      "acceptedWritings": ["学生"],
+      "acceptedReadings": ["がくせい"],
+      "meaningZhContains": "学生",
+      "covers": ["kanji", "dakuon"]
+    },
+    {
+      "sourceKey": "jlpt-n5-0168",
+      "lemma": "学校",
+      "primaryWriting": "学校",
+      "primaryReading": "がっこう",
+      "acceptedWritings": ["学校"],
+      "acceptedReadings": ["がっこう"],
+      "meaningZhContains": "学校",
+      "covers": ["kanji", "sokuon", "long-vowel", "dakuon"]
+    },
+    {
+      "sourceKey": "jlpt-n5-0198",
+      "lemma": "切手",
+      "primaryWriting": "切手",
+      "primaryReading": "きって",
+      "acceptedWritings": ["切手"],
+      "acceptedReadings": ["きって"],
+      "meaningZhContains": "邮票",
+      "covers": ["kanji", "sokuon"]
+    },
+    {
+      "sourceKey": "jlpt-n5-0199",
+      "lemma": "切符",
+      "primaryWriting": "切符",
+      "primaryReading": "きっぷ",
+      "acceptedWritings": ["切符"],
+      "acceptedReadings": ["きっぷ"],
+      "meaningZhContains": "票",
+      "covers": ["kanji", "sokuon", "handakuon"]
+    },
+    {
+      "sourceKey": "jlpt-n5-0327",
+      "lemma": "新聞",
+      "primaryWriting": "新聞",
+      "primaryReading": "しんぶん",
+      "acceptedWritings": ["新聞"],
+      "acceptedReadings": ["しんぶん"],
+      "meaningZhContains": "报纸",
+      "covers": ["kanji", "moraic-n", "dakuon"]
+    },
+    {
+      "sourceKey": "jlpt-n5-0393",
+      "lemma": "食べる",
+      "primaryWriting": "食べる",
+      "primaryReading": "たべる",
+      "acceptedWritings": ["食べる"],
+      "acceptedReadings": ["たべる"],
+      "meaningZhContains": "吃",
+      "covers": ["kanji", "verb", "dakuon"]
+    },
+    {
+      "sourceKey": "jlpt-n5-0049",
+      "lemma": "行く",
+      "primaryWriting": "行く",
+      "primaryReading": "いく",
+      "acceptedWritings": ["行く"],
+      "acceptedReadings": ["いく", "ゆく"],
+      "meaningZhContains": "去",
+      "covers": ["kanji", "verb", "multiple-readings"]
+    },
+    {
+      "sourceKey": "jlpt-n5-0021",
+      "lemma": "新しい",
+      "primaryWriting": "新しい",
+      "primaryReading": "あたらしい",
+      "acceptedWritings": ["新しい"],
+      "acceptedReadings": ["あたらしい"],
+      "meaningZhContains": "新",
+      "covers": ["kanji", "i-adjective"]
+    },
+    {
+      "sourceKey": "jlpt-n5-0379",
+      "lemma": "高い",
+      "primaryWriting": "高い",
+      "primaryReading": "たかい",
+      "acceptedWritings": ["高い"],
+      "acceptedReadings": ["たかい"],
+      "meaningZhContains": "高",
+      "covers": ["kanji", "i-adjective", "multiple-meanings"]
+    },
+    {
+      "sourceKey": "jlpt-n5-0298",
+      "lemma": "静か",
+      "primaryWriting": "静か",
+      "primaryReading": "しずか",
+      "acceptedWritings": ["静か"],
+      "acceptedReadings": ["しずか"],
+      "meaningZhContains": "安静",
+      "covers": ["kanji", "na-adjective", "dakuon"]
+    },
+    {
+      "sourceKey": "jlpt-n5-0241",
+      "lemma": "元気",
+      "primaryWriting": "元気",
+      "primaryReading": "げんき",
+      "acceptedWritings": ["元気"],
+      "acceptedReadings": ["げんき"],
+      "meaningZhContains": "健康",
+      "covers": ["kanji", "na-adjective", "moraic-n", "dakuon"]
+    },
+    {
+      "sourceKey": "jlpt-n5-0570",
+      "lemma": "病院",
+      "primaryWriting": "病院",
+      "primaryReading": "びょういん",
+      "acceptedWritings": ["病院"],
+      "acceptedReadings": ["びょういん"],
+      "meaningZhContains": "医院",
+      "covers": ["kanji", "youon", "small-kana", "long-vowel", "dakuon"]
+    },
+    {
+      "sourceKey": "jlpt-n5-0311",
+      "lemma": "写真",
+      "primaryWriting": "写真",
+      "primaryReading": "しゃしん",
+      "acceptedWritings": ["写真"],
+      "acceptedReadings": ["しゃしん"],
+      "meaningZhContains": "照片",
+      "covers": ["kanji", "youon", "small-kana", "moraic-n"]
+    },
+    {
+      "sourceKey": "jlpt-n5-0214",
+      "lemma": "銀行",
+      "primaryWriting": "銀行",
+      "primaryReading": "ぎんこう",
+      "acceptedWritings": ["銀行"],
+      "acceptedReadings": ["ぎんこう"],
+      "meaningZhContains": "银行",
+      "covers": ["kanji", "dakuon", "moraic-n", "long-vowel"]
+    },
+    {
+      "sourceKey": "jlpt-n5-0102",
+      "lemma": "お母さん",
+      "primaryWriting": "お母さん",
+      "primaryReading": "おかあさん",
+      "acceptedWritings": ["お母さん"],
+      "acceptedReadings": ["おかあさん"],
+      "meaningZhContains": "母亲",
+      "covers": ["kanji", "long-vowel"]
+    },
+    {
+      "sourceKey": "jlpt-n5-0696",
+      "lemma": "ラジオ",
+      "primaryWriting": "ラジオ",
+      "primaryReading": "ラジオ",
+      "acceptedWritings": ["ラジオ"],
+      "acceptedReadings": ["ラジオ"],
+      "meaningZhContains": "收音机",
+      "covers": ["katakana", "dakuon"]
+    },
+    {
+      "sourceKey": "jlpt-n5-0185",
+      "lemma": "川",
+      "primaryWriting": "川",
+      "primaryReading": "かわ",
+      "acceptedWritings": ["川", "河"],
+      "acceptedReadings": ["かわ"],
+      "meaningZhContains": "河",
+      "covers": ["kanji", "multiple-writings"]
+    },
+    {
+      "sourceKey": "jlpt-n5-0289",
+      "lemma": "散歩",
+      "primaryWriting": "散歩",
+      "primaryReading": "さんぽ",
+      "acceptedWritings": ["散歩"],
+      "acceptedReadings": ["さんぽ"],
+      "meaningZhContains": "散步",
+      "covers": ["kanji", "handakuon", "moraic-n", "reading-annotation-cleaned"]
+    }
+  ]
+}
