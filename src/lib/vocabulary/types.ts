@@ -66,6 +66,13 @@ export const ERROR_TYPE = {
 } as const;
 export type ErrorType = (typeof ERROR_TYPE)[keyof typeof ERROR_TYPE];
 
+export const SESSION_TYPE = {
+  LEARN: "LEARN",
+  REVIEW: "REVIEW",
+  WRONG_BOOK: "WRONG_BOOK",
+} as const;
+export type SessionType = (typeof SESSION_TYPE)[keyof typeof SESSION_TYPE];
+
 // --- Read DTOs (Batch 3) ---
 
 export interface MasterySummary {
@@ -214,4 +221,20 @@ export interface AttemptResultDTO {
   remainingCount: number;
   sessionComplete: boolean;
   nextReviewAt: string | null;
+}
+
+export interface WrongVocabularyItem {
+  vocabulary: VocabularyListItem;
+  errorCount: number;
+  lastErrorType: ErrorType | null;
+  lastTargetDimension: VocabularyDimension;
+  lastWrongAt: string;
+}
+
+export interface WrongVocabularyResponse {
+  items: WrongVocabularyItem[];
+  total: number;
+  days: number;
+  errorType: ErrorType | null;
+  dimension: VocabularyDimension | null;
 }

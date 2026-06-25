@@ -134,7 +134,7 @@ export async function updatePlan(
 
 // --- Daily NEW assignments (stable per day) ---
 
-type AssignmentRow = {
+export type AssignmentRow = {
   id: string;
   vocabularyId: string;
   order: number;
@@ -200,16 +200,68 @@ export async function getOrCreateTodayNewAssignments(
   return { plan, localDate, assignments };
 }
 
+export async function getOrCreateTodayReviewAssignments(
+  userId: string,
+): Promise<{ plan: PlanRow; localDate: string; assignments: AssignmentRow[] }> {
+  const plan = await ensureActivePlan(userId);
+  const localDate = localDateString(new Date(), plan.timezone);
+  const now = new Date();
+
+  const assignments = await prisma.$transaction(async (tx) => {
+    const existing = await tx.vocabularyDailyAssignment.findMany({
+      where: { userId, localDate, assignmentType: ASSIGNMENT_REVIEW },
+      orderBy: { order: "asc" },
+      select: { id: true, vocabularyId: true, order: true, completedAt: true },
+    });
+    const existingIds = new Set(existing.map((assignment) => assignment.vocabularyId));
+
+    const due = await tx.vocabularyMastery.findMany({
+      where: {
+        userId,
+        isSuspended: false,
+        status: { in: ACTIVE_STATUSES },
+        nextReviewAt: { lte: now },
+        vocabulary: { isActive: true, level: plan.level },
+      },
+      orderBy: [
+        { nextReviewAt: "asc" },
+        { consecutiveWrongCount: "desc" },
+        { lastReviewedAt: "desc" },
+      ],
+      select: { vocabularyId: true },
+    });
+
+    let order = existing.length;
+    for (const mastery of due) {
+      if (existingIds.has(mastery.vocabularyId)) continue;
+      await tx.vocabularyDailyAssignment.create({
+        data: {
+          userId,
+          localDate,
+          vocabularyId: mastery.vocabularyId,
+          assignmentType: ASSIGNMENT_REVIEW,
+          order: order++,
+        },
+      });
+    }
+
+    return tx.vocabularyDailyAssignment.findMany({
+      where: { userId, localDate, assignmentType: ASSIGNMENT_REVIEW },
+      orderBy: { order: "asc" },
+      select: { id: true, vocabularyId: true, order: true, completedAt: true },
+    });
+  });
+
+  return { plan, localDate, assignments };
+}
+
 // --- Dashboard ---
 
 export async function getDashboard(userId: string): Promise<DashboardDTO> {
   const { plan, localDate, assignments } = await getOrCreateTodayNewAssignments(userId);
+  const { assignments: reviewAssignments } =
+    await getOrCreateTodayReviewAssignments(userId);
   const startToday = startOfLocalDayUtc(localDate, plan.timezone);
-
-  const reviewAssignments = await prisma.vocabularyDailyAssignment.findMany({
-    where: { userId, localDate, assignmentType: ASSIGNMENT_REVIEW },
-    select: { completedAt: true },
-  });
 
   const [overdueReview, totalWords, started, mastered, avg] = await prisma.$transaction([
     prisma.vocabularyMastery.count({

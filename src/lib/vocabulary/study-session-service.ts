@@ -11,6 +11,7 @@ import {
 import {
   VOCABULARY_DIMENSION,
   VOCABULARY_STATUS,
+  SESSION_TYPE,
   type AttemptResultDTO,
   type ExerciseType,
   type LearnNextDTO,
@@ -19,6 +20,7 @@ import {
   type QuestionOption,
   type QuestionPrompt,
   type SessionDTO,
+  type SessionType,
   type VocabularyDimension,
   type VocabularyStatus,
 } from "@/lib/vocabulary/types";
@@ -28,10 +30,13 @@ import { getVocabularyDetail } from "@/lib/vocabulary/vocabulary-repository";
 import {
   ensureActivePlan,
   getOrCreateTodayNewAssignments,
+  getOrCreateTodayReviewAssignments,
   localDateString,
 } from "@/lib/vocabulary/study-plan-service";
 
-const SESSION_LEARN = "LEARN";
+const SESSION_LEARN = SESSION_TYPE.LEARN;
+const SESSION_REVIEW = SESSION_TYPE.REVIEW;
+const SESSION_WRONG_BOOK = SESSION_TYPE.WRONG_BOOK;
 const ITEM_PENDING = "PENDING";
 const ITEM_ISSUED = "ISSUED";
 const ITEM_CORRECT = "CORRECT";
@@ -166,6 +171,179 @@ export async function createOrResumeLearnSession(userId: string): Promise<Sessio
   };
 }
 
+export async function createOrResumeReviewSession(userId: string): Promise<SessionDTO> {
+  const existing = await getActiveSessionDTO(userId, SESSION_REVIEW);
+  if (existing) return existing;
+
+  const { localDate, assignments } =
+    await getOrCreateTodayReviewAssignments(userId);
+  const uncompleted = assignments.filter((assignment) => !assignment.completedAt);
+  return createSessionFromCandidates(
+    userId,
+    SESSION_REVIEW,
+    localDate,
+    uncompleted.map((assignment) => ({
+      vocabularyId: assignment.vocabularyId,
+      assignmentId: assignment.id,
+    })),
+  );
+}
+
+export interface WrongBookSessionFilters {
+  days: 7 | 30;
+  errorType?: string;
+  dimension?: VocabularyDimension;
+}
+
+export async function createOrResumeWrongBookSession(
+  userId: string,
+  filters: WrongBookSessionFilters,
+): Promise<SessionDTO> {
+  const existing = await getActiveSessionDTO(userId, SESSION_WRONG_BOOK);
+  if (existing) return existing;
+
+  const plan = await ensureActivePlan(userId);
+  const localDate = localDateString(new Date(), plan.timezone);
+  const since = new Date(Date.now() - filters.days * 24 * 60 * 60 * 1_000);
+  const attempts = await prisma.vocabularyAttempt.findMany({
+    where: {
+      userId,
+      isCorrect: false,
+      createdAt: { gte: since },
+      ...(filters.errorType ? { errorType: filters.errorType } : {}),
+      ...(filters.dimension ? { targetDimension: filters.dimension } : {}),
+      vocabulary: { isActive: true, level: plan.level },
+    },
+    orderBy: { createdAt: "desc" },
+    select: { vocabularyId: true },
+  });
+  const vocabularyIds = [...new Set(attempts.map((attempt) => attempt.vocabularyId))].slice(0, 50);
+
+  return createSessionFromCandidates(
+    userId,
+    SESSION_WRONG_BOOK,
+    localDate,
+    vocabularyIds.map((vocabularyId) => ({ vocabularyId, assignmentId: null })),
+  );
+}
+
+async function getActiveSessionDTO(
+  userId: string,
+  sessionType: SessionType,
+): Promise<SessionDTO | null> {
+  const existing = await prisma.vocabularyStudySession.findFirst({
+    where: { userId, sessionType, status: SESSION_ACTIVE },
+    orderBy: { createdAt: "desc" },
+  });
+  if (!existing) return null;
+
+  const [totalCount, pendingCount] = await prisma.$transaction([
+    prisma.vocabularySessionItem.count({ where: { sessionId: existing.id } }),
+    prisma.vocabularySessionItem.count({
+      where: { sessionId: existing.id, status: { in: [ITEM_PENDING, ITEM_ISSUED] } },
+    }),
+  ]);
+  return {
+    sessionId: existing.id,
+    sessionType,
+    localDate: existing.localDate,
+    status: existing.status,
+    totalCount,
+    pendingCount,
+  };
+}
+
+async function createSessionFromCandidates(
+  userId: string,
+  sessionType: SessionType,
+  localDate: string,
+  candidates: Array<{ vocabularyId: string; assignmentId: string | null }>,
+): Promise<SessionDTO> {
+  if (candidates.length === 0) {
+    return {
+      sessionId: "",
+      sessionType,
+      localDate,
+      status: SESSION_COMPLETED,
+      totalCount: 0,
+      pendingCount: 0,
+    };
+  }
+
+  const vocabularyIds = candidates.map((candidate) => candidate.vocabularyId);
+  const [masteries, examples] = await prisma.$transaction([
+    prisma.vocabularyMastery.findMany({
+      where: { userId, vocabularyId: { in: vocabularyIds } },
+    }),
+    prisma.vocabularyExample.findMany({
+      where: {
+        vocabularyId: { in: vocabularyIds },
+        status: "ACTIVE",
+        sourceType: { in: ["SOURCE", "CURATED"] },
+      },
+      select: { vocabularyId: true },
+    }),
+  ]);
+  const masteryMap = new Map(masteries.map((mastery) => [mastery.vocabularyId, mastery]));
+  const exampleSet = new Set(examples.map((example) => example.vocabularyId));
+
+  const session = await prisma.$transaction(async (tx) => {
+    const created = await tx.vocabularyStudySession.create({
+      data: { userId, sessionType, localDate, status: SESSION_ACTIVE },
+    });
+    for (const [sequence, candidate] of candidates.entries()) {
+      const mastery = masteryMap.get(candidate.vocabularyId);
+      if (!mastery) continue;
+      const summary: MasterySummary = {
+        status: mastery.status as VocabularyStatus,
+        readingScore: mastery.readingScore,
+        spellingScore: mastery.spellingScore,
+        meaningScore: mastery.meaningScore,
+        writingScore: mastery.writingScore,
+        contextScore: mastery.contextScore,
+        reviewStage: mastery.reviewStage,
+        nextReviewAt: mastery.nextReviewAt?.toISOString() ?? null,
+        masteredAt: mastery.masteredAt?.toISOString() ?? null,
+        isFavorite: mastery.isFavorite,
+        isSuspended: mastery.isSuspended,
+      };
+      const selected = selectExerciseType(summary, exampleSet.has(candidate.vocabularyId));
+      await tx.vocabularySessionItem.create({
+        data: {
+          sessionId: created.id,
+          vocabularyId: candidate.vocabularyId,
+          assignmentId: candidate.assignmentId,
+          sequence,
+          attemptNo: 0,
+          availableAfterCompletedCount: 0,
+          exerciseType: selected.exerciseType,
+          targetDimension: selected.targetDimension,
+          status: ITEM_PENDING,
+        },
+      });
+    }
+    return created;
+  });
+
+  const totalCount = await prisma.vocabularySessionItem.count({
+    where: { sessionId: session.id },
+  });
+  if (totalCount === 0) {
+    await prisma.vocabularyStudySession.update({
+      where: { id: session.id },
+      data: { status: SESSION_COMPLETED, completedAt: new Date() },
+    });
+  }
+  return {
+    sessionId: totalCount > 0 ? session.id : "",
+    sessionType,
+    localDate,
+    status: totalCount > 0 ? SESSION_ACTIVE : SESSION_COMPLETED,
+    totalCount,
+    pendingCount: totalCount,
+  };
+}
+
 // ---------------------------------------------------------------------------
 // Get next item (called by /learn/next)
 // ---------------------------------------------------------------------------
@@ -175,10 +353,28 @@ export async function createOrResumeLearnSession(userId: string): Promise<Sessio
  * and return card + question data suitable for the /learn/next response.
  */
 export async function getAndIssueNextLearnItem(userId: string): Promise<LearnNextDTO> {
-  // Ensure a session exists
-  const sessionInfo = await createOrResumeLearnSession(userId);
+  return getAndIssueNextSessionItem(userId, SESSION_LEARN);
+}
 
-  if (!sessionInfo.sessionId || sessionInfo.status !== SESSION_ACTIVE) {
+export async function getAndIssueNextReviewItem(
+  userId: string,
+  sessionType: typeof SESSION_REVIEW | typeof SESSION_WRONG_BOOK,
+): Promise<LearnNextDTO> {
+  return getAndIssueNextSessionItem(userId, sessionType);
+}
+
+async function getAndIssueNextSessionItem(
+  userId: string,
+  sessionType: SessionType,
+): Promise<LearnNextDTO> {
+  const sessionInfo =
+    sessionType === SESSION_LEARN
+      ? await createOrResumeLearnSession(userId)
+      : sessionType === SESSION_REVIEW
+        ? await createOrResumeReviewSession(userId)
+        : await getActiveSessionDTO(userId, SESSION_WRONG_BOOK);
+
+  if (!sessionInfo?.sessionId || sessionInfo.status !== SESSION_ACTIVE) {
     return { done: true, remaining: 0, assignmentId: null, sessionItemId: null, card: null, question: null };
   }
 
@@ -240,7 +436,7 @@ export async function getAndIssueNextLearnItem(userId: string): Promise<LearnNex
       where: { id: futureItem.id },
       data: { availableAfterCompletedCount: session.completedItemCount },
     });
-    return getAndIssueNextLearnItem(userId);
+    return getAndIssueNextSessionItem(userId, sessionType);
   }
 
   // Get card data
@@ -449,10 +645,11 @@ export async function submitAttempt(params: SubmitAttemptParams): Promise<Attemp
       currentStatus,
       updatedScores.readingScore,
       updatedScores.spellingScore,
-      updatedScores.meaningScore,
-      lastInputCorrectAt,
-      lastInputWrongAt,
-      newStage,
+    updatedScores.meaningScore,
+    lastInputCorrectAt,
+    lastInputWrongAt,
+    newStage,
+    evaluation.isCorrect,
     );
 
     const newMasteredAt =
@@ -771,7 +968,11 @@ function computeNextStatus(
   lastInputCorrectAt: Date | null,
   lastInputWrongAt: Date | null,
   nextStage: number,
+  isCorrect: boolean,
 ): string {
+  if (currentStatus === VOCABULARY_STATUS.MASTERED && !isCorrect) {
+    return VOCABULARY_STATUS.REVIEWING;
+  }
   const mastered =
     readingScore >= MASTERY_THRESHOLD &&
     spellingScore >= MASTERY_THRESHOLD &&

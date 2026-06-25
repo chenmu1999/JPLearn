@@ -78,8 +78,6 @@ export default function VocabularyPage() {
                 remaining={data.reviewToday.remaining}
                 href="/vocabulary/review"
                 color="blue"
-                disabled
-                disabledLabel="复习功能即将开放"
               />
             </div>
 
@@ -118,10 +116,13 @@ export default function VocabularyPage() {
                 <p className="font-bold">单词本</p>
                 <p className="mt-1 text-sm text-[#17241d]/50">浏览和搜索所有 N5 词汇</p>
               </Link>
-              <div className="rounded-2xl border border-[#17241d]/10 bg-white/40 p-5 opacity-50">
+              <Link
+                href="/vocabulary/wrong"
+                className="rounded-2xl border border-[#17241d]/15 bg-white/80 p-5 transition hover:border-[#17241d]/30"
+              >
                 <p className="font-bold">错词本</p>
-                <p className="mt-1 text-sm text-[#17241d]/50">即将开放</p>
-              </div>
+                <p className="mt-1 text-sm text-[#17241d]/50">按错误类型开始专项复习</p>
+              </Link>
             </div>
           </div>
         )}
