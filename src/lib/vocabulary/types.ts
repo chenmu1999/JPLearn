@@ -141,3 +141,32 @@ export interface VocabularyDetail extends VocabularyListItem {
   examples: ExampleDTO[];
   recentAttempts: AttemptSummary;
 }
+
+// --- Study plan / dashboard DTOs (Batch 4) ---
+
+export interface StudyPlanDTO {
+  id: string;
+  level: string;
+  dailyNewCount: number;
+  timezone: string;
+  isActive: boolean;
+  startedAt: string;
+  localDate: string;
+}
+
+export interface DashboardDTO {
+  localDate: string;
+  plan: { level: string; dailyNewCount: number; timezone: string };
+  newToday: { total: number; remaining: number };
+  reviewToday: { total: number; remaining: number };
+  overdueReview: number;
+  totals: { words: number; started: number; mastered: number };
+  averages: { reading: number; spelling: number; meaning: number };
+}
+
+export interface LearnNextDTO {
+  done: boolean;
+  remaining: number;
+  assignmentId: string | null;
+  card: VocabularyDetail | null;
+}

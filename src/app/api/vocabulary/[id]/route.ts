@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import { getSessionUserId } from "@/lib/auth/session";
+import { authenticate } from "@/lib/vocabulary/api-helpers";
 import { getVocabularyDetail } from "@/lib/vocabulary/vocabulary-repository";
 
 export const runtime = "nodejs";
@@ -10,23 +10,9 @@ export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  let userId: string | null;
-  try {
-    userId = getSessionUserId(request);
-  } catch (error) {
-    console.error("Vocabulary auth configuration error", error);
-    return NextResponse.json(
-      { ok: false, code: "AUTH_NOT_CONFIGURED", message: "登录功能尚未配置。" },
-      { status: 503 },
-    );
-  }
-
-  if (!userId) {
-    return NextResponse.json(
-      { ok: false, code: "UNAUTHORIZED", message: "请先登录后再查看单词详情。" },
-      { status: 401 },
-    );
-  }
+  const auth = authenticate(request);
+  if (!auth.ok) return auth.response;
+  const userId = auth.userId;
 
   const { id } = await params;
   if (!id) {

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import { getSessionUserId } from "@/lib/auth/session";
+import { authenticate } from "@/lib/vocabulary/api-helpers";
 import {
   PAGINATION,
   VOCABULARY_SORT_VALUES,
@@ -18,23 +18,9 @@ function parsePositiveInt(value: string | null, fallback: number): number {
 }
 
 export async function GET(request: NextRequest) {
-  let userId: string | null;
-  try {
-    userId = getSessionUserId(request);
-  } catch (error) {
-    console.error("Vocabulary auth configuration error", error);
-    return NextResponse.json(
-      { ok: false, code: "AUTH_NOT_CONFIGURED", message: "登录功能尚未配置。" },
-      { status: 503 },
-    );
-  }
-
-  if (!userId) {
-    return NextResponse.json(
-      { ok: false, code: "UNAUTHORIZED", message: "请先登录后再浏览单词本。" },
-      { status: 401 },
-    );
-  }
+  const auth = authenticate(request);
+  if (!auth.ok) return auth.response;
+  const userId = auth.userId;
 
   const sp = request.nextUrl.searchParams;
   const page = parsePositiveInt(sp.get("page"), 1);
