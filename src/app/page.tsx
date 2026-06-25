@@ -1,3 +1,7 @@
+import Link from "next/link";
+
+import { ChatPanel } from "@/components/chat-panel";
+
 const plannedFeatures = [
   {
     label: "知识点",
@@ -32,12 +36,20 @@ export default function Home() {
               </p>
             </div>
           </div>
-          <span className="rounded-full border border-[#17241d]/15 bg-white/60 px-4 py-2 text-sm font-medium">
-            MVP 开发中
-          </span>
+          <div className="flex items-center gap-3">
+            <Link
+              href="/vocabulary/book"
+              className="rounded-full bg-[#24705a] px-4 py-2 text-sm font-bold text-white transition hover:bg-[#17241d]"
+            >
+              单词本
+            </Link>
+            <span className="rounded-full border border-[#17241d]/15 bg-white/60 px-4 py-2 text-sm font-medium">
+              MVP 开发中
+            </span>
+          </div>
         </header>
 
-        <section className="grid flex-1 items-center gap-14 py-16 lg:grid-cols-[1.2fr_0.8fr] lg:py-24">
+        <section className="grid items-center gap-14 py-16 lg:grid-cols-[1.2fr_0.8fr] lg:py-24">
           <div>
             <p className="mb-5 text-sm font-bold uppercase tracking-[0.25em] text-[#d94f3d]">
               Japanese learning, made active
@@ -52,9 +64,12 @@ export default function Home() {
             </p>
 
             <div className="mt-9 flex flex-wrap items-center gap-4">
-              <span className="rounded-full bg-[#17241d] px-6 py-3 text-sm font-bold text-white">
-                正式工程已启动
-              </span>
+              <a
+                href="#chat"
+                className="rounded-full bg-[#17241d] px-6 py-3 text-sm font-bold text-white transition hover:bg-[#24705a]"
+              >
+                开始对话
+              </a>
               <span className="text-sm text-[#17241d]/55">
                 Next.js · TypeScript · Tailwind CSS
               </span>
@@ -78,6 +93,22 @@ export default function Home() {
               書く
             </span>
           </div>
+        </section>
+
+        <section className="grid gap-8 border-t border-[#17241d]/15 py-12 lg:grid-cols-[0.7fr_1.3fr] lg:items-start lg:py-16">
+          <div className="lg:sticky lg:top-8">
+            <p className="text-sm font-bold uppercase tracking-[0.22em] text-[#d94f3d]">
+              Talk, ask, practice
+            </p>
+            <h2 className="mt-4 text-4xl font-black leading-tight tracking-[-0.03em]">
+              有问题，
+              <span className="block text-[#24705a]">现在就用日语聊。</span>
+            </h2>
+            <p className="mt-5 max-w-md text-sm leading-7 text-[#17241d]/60">
+              这是临时测试对话。当前页面会保留最近的上下文，刷新后清空，不会写入数据库。
+            </p>
+          </div>
+          <ChatPanel />
         </section>
 
         <section className="grid gap-4 border-t border-[#17241d]/15 pt-8 md:grid-cols-3">
