@@ -35,3 +35,6 @@ Thumbs.db
 
 # Codex local metadata
 .agents/
+.codex/automation/logs/
+.codex/automation/*.lock
+.codex/automation/*.status.json
