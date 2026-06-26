@@ -18,7 +18,8 @@ export async function GET(request: NextRequest) {
       : SESSION_TYPE.REVIEW;
 
   try {
-    const next = await getAndIssueNextReviewItem(auth.userId, sessionType);
+    const planId = request.nextUrl.searchParams.get("planId");
+    const next = await getAndIssueNextReviewItem(auth.userId, sessionType, planId);
     return NextResponse.json({ ok: true, ...next });
   } catch (error) {
     console.error("review/next failed", error);

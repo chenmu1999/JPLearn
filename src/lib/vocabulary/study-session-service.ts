@@ -32,6 +32,7 @@ import {
   getOrCreateTodayNewAssignments,
   getOrCreateTodayReviewAssignments,
   localDateString,
+  resolvePlan,
 } from "@/lib/vocabulary/study-plan-service";
 
 const SESSION_LEARN = SESSION_TYPE.LEARN;
@@ -51,14 +52,17 @@ const RETRY_DELAY_ITEMS = 3;
 // Session creation / resumption
 // ---------------------------------------------------------------------------
 
-/** Create a new LEARN session or return the current active one. */
-export async function createOrResumeLearnSession(userId: string): Promise<SessionDTO> {
-  const plan = await ensureActivePlan(userId);
+/** Create a new LEARN session or return the current active one (for a plan). */
+export async function createOrResumeLearnSession(
+  userId: string,
+  planId?: string | null,
+): Promise<SessionDTO> {
+  const plan = await resolvePlan(userId, planId);
   const localDate = localDateString(new Date(), plan.timezone);
 
-  // Check for existing active LEARN session
+  // Check for existing active LEARN session in this plan
   const existing = await prisma.vocabularyStudySession.findFirst({
-    where: { userId, sessionType: SESSION_LEARN, status: SESSION_ACTIVE },
+    where: { userId, planId: plan.id, sessionType: SESSION_LEARN, status: SESSION_ACTIVE },
     orderBy: { createdAt: "desc" },
   });
 
@@ -77,8 +81,8 @@ export async function createOrResumeLearnSession(userId: string): Promise<Sessio
     };
   }
 
-  // Build new session from today's uncompleted NEW assignments
-  const { assignments } = await getOrCreateTodayNewAssignments(userId);
+  // Build new session from today's uncompleted NEW assignments for this plan
+  const { assignments } = await getOrCreateTodayNewAssignments(plan);
   const uncompleted = assignments.filter((a) => !a.completedAt);
 
   if (uncompleted.length === 0) {
@@ -116,7 +120,7 @@ export async function createOrResumeLearnSession(userId: string): Promise<Sessio
   // Create session + items in one transaction
   const session = await prisma.$transaction(async (tx) => {
     const s = await tx.vocabularyStudySession.create({
-      data: { userId, sessionType: SESSION_LEARN, localDate, status: SESSION_ACTIVE },
+      data: { userId, planId: plan.id, sessionType: SESSION_LEARN, localDate, status: SESSION_ACTIVE },
     });
 
     let sequence = 0;
@@ -171,12 +175,15 @@ export async function createOrResumeLearnSession(userId: string): Promise<Sessio
   };
 }
 
-export async function createOrResumeReviewSession(userId: string): Promise<SessionDTO> {
-  const existing = await getActiveSessionDTO(userId, SESSION_REVIEW);
+export async function createOrResumeReviewSession(
+  userId: string,
+  planId?: string | null,
+): Promise<SessionDTO> {
+  const plan = await resolvePlan(userId, planId);
+  const existing = await getActiveSessionDTO(userId, SESSION_REVIEW, plan.id);
   if (existing) return existing;
 
-  const { localDate, assignments } =
-    await getOrCreateTodayReviewAssignments(userId);
+  const { localDate, assignments } = await getOrCreateTodayReviewAssignments(plan);
   const uncompleted = assignments.filter((assignment) => !assignment.completedAt);
   return createSessionFromCandidates(
     userId,
@@ -186,6 +193,7 @@ export async function createOrResumeReviewSession(userId: string): Promise<Sessi
       vocabularyId: assignment.vocabularyId,
       assignmentId: assignment.id,
     })),
+    plan.id,
   );
 }
 
@@ -230,9 +238,10 @@ export async function createOrResumeWrongBookSession(
 async function getActiveSessionDTO(
   userId: string,
   sessionType: SessionType,
+  planId?: string | null,
 ): Promise<SessionDTO | null> {
   const existing = await prisma.vocabularyStudySession.findFirst({
-    where: { userId, sessionType, status: SESSION_ACTIVE },
+    where: { userId, sessionType, status: SESSION_ACTIVE, ...(planId ? { planId } : {}) },
     orderBy: { createdAt: "desc" },
   });
   if (!existing) return null;
@@ -258,6 +267,7 @@ async function createSessionFromCandidates(
   sessionType: SessionType,
   localDate: string,
   candidates: Array<{ vocabularyId: string; assignmentId: string | null }>,
+  planId?: string | null,
 ): Promise<SessionDTO> {
   if (candidates.length === 0) {
     return {
@@ -289,7 +299,7 @@ async function createSessionFromCandidates(
 
   const session = await prisma.$transaction(async (tx) => {
     const created = await tx.vocabularyStudySession.create({
-      data: { userId, sessionType, localDate, status: SESSION_ACTIVE },
+      data: { userId, planId: planId ?? null, sessionType, localDate, status: SESSION_ACTIVE },
     });
     for (const [sequence, candidate] of candidates.entries()) {
       const mastery = masteryMap.get(candidate.vocabularyId);
@@ -352,27 +362,32 @@ async function createSessionFromCandidates(
  * Get the next pending or currently-issued session item, issue a question for it,
  * and return card + question data suitable for the /learn/next response.
  */
-export async function getAndIssueNextLearnItem(userId: string): Promise<LearnNextDTO> {
-  return getAndIssueNextSessionItem(userId, SESSION_LEARN);
+export async function getAndIssueNextLearnItem(
+  userId: string,
+  planId?: string | null,
+): Promise<LearnNextDTO> {
+  return getAndIssueNextSessionItem(userId, SESSION_LEARN, planId);
 }
 
 export async function getAndIssueNextReviewItem(
   userId: string,
   sessionType: typeof SESSION_REVIEW | typeof SESSION_WRONG_BOOK,
+  planId?: string | null,
 ): Promise<LearnNextDTO> {
-  return getAndIssueNextSessionItem(userId, sessionType);
+  return getAndIssueNextSessionItem(userId, sessionType, planId);
 }
 
 async function getAndIssueNextSessionItem(
   userId: string,
   sessionType: SessionType,
+  planId?: string | null,
 ): Promise<LearnNextDTO> {
   const sessionInfo =
     sessionType === SESSION_LEARN
-      ? await createOrResumeLearnSession(userId)
+      ? await createOrResumeLearnSession(userId, planId)
       : sessionType === SESSION_REVIEW
-        ? await createOrResumeReviewSession(userId)
-        : await getActiveSessionDTO(userId, SESSION_WRONG_BOOK);
+        ? await createOrResumeReviewSession(userId, planId)
+        : await getActiveSessionDTO(userId, SESSION_WRONG_BOOK, planId);
 
   if (!sessionInfo?.sessionId || sessionInfo.status !== SESSION_ACTIVE) {
     return { done: true, remaining: 0, assignmentId: null, sessionItemId: null, card: null, question: null };
@@ -436,7 +451,7 @@ async function getAndIssueNextSessionItem(
       where: { id: futureItem.id },
       data: { availableAfterCompletedCount: session.completedItemCount },
     });
-    return getAndIssueNextSessionItem(userId, sessionType);
+    return getAndIssueNextSessionItem(userId, sessionType, planId);
   }
 
   // Get card data

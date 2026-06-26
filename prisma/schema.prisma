@@ -224,26 +224,35 @@ model VocabularyMastery {
   @@index([userId, nextReviewAt, isSuspended])
 }
 
+// A user study plan: one JLPT level word book over a date range. The first
+// version allows multiple concurrent ACTIVE plans (different levels).
 model VocabularyStudyPlan {
   id                String    @id @default(cuid())
   userId            String
+  name              String?
   level             String    @default("N5")
-  dailyNewCount     Int       @default(10)
+  dailyNewCount     Int       @default(10) // display/target pace (words/day at creation)
+  totalWords        Int       @default(0) // level size cached at creation, for progress
   timezone          String    @default("Asia/Shanghai")
   isActive          Boolean   @default(true)
+  status            String    @default("ACTIVE") // ACTIVE, COMPLETED, ARCHIVED
   startedAt         DateTime  @default(now())
   targetCompletedAt DateTime?
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
 
-  user UserProfile @relation(fields: [userId], references: [id])
+  user             UserProfile                 @relation(fields: [userId], references: [id])
+  dailyAssignments VocabularyDailyAssignment[]
+  studySessions    VocabularyStudySession[]
 
+  @@index([userId, status])
   @@index([userId, isActive])
 }
 
 model VocabularyDailyAssignment {
   id             String    @id @default(cuid())
   userId         String
+  planId         String?
   localDate      String // YYYY-MM-DD in the plan timezone
   vocabularyId   String
   assignmentType String // NEW, REVIEW
@@ -252,17 +261,20 @@ model VocabularyDailyAssignment {
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
 
-  user       UserProfile     @relation(fields: [userId], references: [id])
-  vocabulary VocabularyEntry @relation(fields: [vocabularyId], references: [id])
+  user       UserProfile          @relation(fields: [userId], references: [id])
+  plan       VocabularyStudyPlan? @relation(fields: [planId], references: [id], onDelete: Cascade)
+  vocabulary VocabularyEntry      @relation(fields: [vocabularyId], references: [id])
 
-  @@unique([userId, localDate, vocabularyId, assignmentType])
-  @@unique([userId, localDate, assignmentType, order])
+  @@unique([planId, localDate, vocabularyId, assignmentType])
+  @@unique([planId, localDate, assignmentType, order])
+  @@index([userId, localDate, assignmentType])
 }
 
 // A resumable round of learning / review.
 model VocabularyStudySession {
   id                 String    @id @default(cuid())
   userId             String
+  planId             String?
   sessionType        String // LEARN, REVIEW, WRONG_BOOK
   localDate          String
   status             String    @default("ACTIVE") // ACTIVE, COMPLETED, ABANDONED
@@ -274,10 +286,12 @@ model VocabularyStudySession {
   updatedAt          DateTime  @updatedAt
 
   user     UserProfile             @relation(fields: [userId], references: [id])
+  plan     VocabularyStudyPlan?    @relation(fields: [planId], references: [id], onDelete: Cascade)
   items    VocabularySessionItem[]
   attempts VocabularyAttempt[]
 
   @@index([userId, status, sessionType])
+  @@index([planId, status, sessionType])
 }
 
 // One planned question slot in a session. Retries on wrong answers add new items.

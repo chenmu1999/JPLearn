@@ -20,8 +20,8 @@ export const dynamic = "force-dynamic";
 const errorTypeValues = Object.values(ERROR_TYPE) as [string, ...string[]];
 const dimensionValues = Object.values(VOCABULARY_DIMENSION) as [string, ...string[]];
 const bodySchema = z.discriminatedUnion("sessionType", [
-  z.object({ sessionType: z.literal(SESSION_TYPE.LEARN) }),
-  z.object({ sessionType: z.literal(SESSION_TYPE.REVIEW) }),
+  z.object({ sessionType: z.literal(SESSION_TYPE.LEARN), planId: z.string().optional() }),
+  z.object({ sessionType: z.literal(SESSION_TYPE.REVIEW), planId: z.string().optional() }),
   z.object({
     sessionType: z.literal(SESSION_TYPE.WRONG_BOOK),
     days: z.union([z.literal(7), z.literal(30)]).default(7),
@@ -55,9 +55,9 @@ export async function POST(request: NextRequest) {
   try {
     const session =
       parsed.data.sessionType === SESSION_TYPE.LEARN
-        ? await createOrResumeLearnSession(auth.userId)
+        ? await createOrResumeLearnSession(auth.userId, parsed.data.planId)
         : parsed.data.sessionType === SESSION_TYPE.REVIEW
-          ? await createOrResumeReviewSession(auth.userId)
+          ? await createOrResumeReviewSession(auth.userId, parsed.data.planId)
           : await createOrResumeWrongBookSession(auth.userId, {
               days: parsed.data.days,
               errorType: parsed.data.errorType,

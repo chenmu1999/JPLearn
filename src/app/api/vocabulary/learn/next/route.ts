@@ -11,7 +11,8 @@ export async function GET(request: NextRequest) {
   if (!auth.ok) return auth.response;
 
   try {
-    const next = await getAndIssueNextLearnItem(auth.userId);
+    const planId = request.nextUrl.searchParams.get("planId");
+    const next = await getAndIssueNextLearnItem(auth.userId, planId);
     return NextResponse.json({ ok: true, ...next });
   } catch (error) {
     console.error("learn/next failed", error);

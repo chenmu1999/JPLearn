@@ -171,6 +171,34 @@ export interface DashboardDTO {
   averages: { reading: number; spelling: number; meaning: number };
 }
 
+// --- Multi-plan DTOs ---
+
+export type PlanTimeMode = "BY_END_DATE" | "BY_DAILY";
+export type PlanStatus = "ACTIVE" | "COMPLETED" | "ARCHIVED";
+
+/** A study plan with computed progress, used by list + detail views. */
+export interface PlanDTO {
+  id: string;
+  name: string | null;
+  level: string;
+  status: PlanStatus;
+  timezone: string;
+  startDate: string; // YYYY-MM-DD (local)
+  endDate: string | null; // YYYY-MM-DD (local)
+  localDate: string; // today in plan tz
+  dailyNewCount: number; // target pace at creation
+  totalWords: number; // level size
+  // Progress
+  learnedWords: number; // introduced (has NEW assignment) or started mastery
+  masteredWords: number;
+  daysTotal: number;
+  daysElapsed: number;
+  daysLeft: number;
+  todayTarget: number; // adaptive new-word target for today
+  newToday: { total: number; remaining: number };
+  reviewToday: { total: number; remaining: number };
+}
+
 export interface LearnNextDTO {
   done: boolean;
   remaining: number;
