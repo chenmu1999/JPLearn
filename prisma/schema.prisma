@@ -107,6 +107,10 @@ model VocabularyEntry {
   rawDataJson      String?
   isActive         Boolean  @default(true)
   sourceOrder      Int
+  // Corpus frequency rank (1 = most common). Drives the new-word learning order
+  // so common words come first. Null = not found in the frequency list; such
+  // words fall back to sourceOrder at the tail. See scripts/backfill-frequency-rank.ts.
+  frequencyRank    Int?
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
@@ -121,6 +125,7 @@ model VocabularyEntry {
   attempts         VocabularyAttempt[]
 
   @@unique([level, sourceOrder])
+  @@index([level, frequencyRank])
   @@index([primaryWriting])
   @@index([primaryReading])
 }

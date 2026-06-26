@@ -158,7 +158,9 @@ export async function getOrCreateTodayNewAssignments(
     if (need <= 0) return existing;
 
     // Words never introduced before (no NEW assignment on any day), not
-    // suspended, still NEW. Stable order by source order.
+    // suspended, still NEW. Ordered by corpus frequency ("common words first")
+    // with sourceOrder as a stable tiebreaker; words missing a frequency rank
+    // sort last (nulls last) and fall back to gojūon source order.
     const candidates = await tx.vocabularyEntry.findMany({
       where: {
         isActive: true,
@@ -170,7 +172,11 @@ export async function getOrCreateTodayNewAssignments(
           { masteries: { some: { userId, status: VOCABULARY_STATUS.NEW } } },
         ],
       },
-      orderBy: [{ level: "asc" }, { sourceOrder: "asc" }],
+      orderBy: [
+        { level: "asc" },
+        { frequencyRank: { sort: "asc", nulls: "last" } },
+        { sourceOrder: "asc" },
+      ],
       take: need,
       select: { id: true },
     });

@@ -14,7 +14,8 @@
     "db:seed": "prisma db seed",
     "db:validate:n5": "tsx scripts/validate-n5-vocabulary.ts",
     "db:import:n5": "tsx scripts/import-n5-vocabulary.ts",
-    "db:check:n5": "tsx scripts/check-n5-acceptance.ts"
+    "db:check:n5": "tsx scripts/check-n5-acceptance.ts",
+    "db:backfill:freq": "tsx scripts/backfill-frequency-rank.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
