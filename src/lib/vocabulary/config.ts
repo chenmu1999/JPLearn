@@ -8,8 +8,8 @@
 /** First version is single-user; this is the seeded UserProfile id. */
 export const LOCAL_USER_ID = "local-user";
 
-/** First-version word book. */
-export const VOCABULARY_LEVELS = ["N5"] as const;
+/** JLPT word books, ordered easiest → hardest (default/learning order). */
+export const VOCABULARY_LEVELS = ["N5", "N4", "N3", "N2", "N1"] as const;
 export type VocabularyLevel = (typeof VOCABULARY_LEVELS)[number];
 
 /** List pagination caps (server enforces maxPageSize to block huge queries). */
