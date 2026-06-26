@@ -26,6 +26,7 @@ model UserProfile {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
+  account             Account?
   masteryStates       MasteryState[]
   vocabularyMasteries VocabularyMastery[]
   studyPlans          VocabularyStudyPlan[]
@@ -33,6 +34,20 @@ model UserProfile {
   studySessions       VocabularyStudySession[]
   questions           VocabularyQuestion[]
   attempts            VocabularyAttempt[]
+}
+
+// Login account. Decoupled from UserProfile so auth credentials never leak into
+// learning data. First version is single-user: one `admin` account linked to the
+// seeded local UserProfile.
+model Account {
+  id            String   @id @default(cuid())
+  username      String   @unique
+  passwordHash  String
+  userProfileId String   @unique
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  userProfile UserProfile @relation(fields: [userProfileId], references: [id])
 }
 
 // Cross-module index for both vocabulary and grammar. Does not carry word-learning detail.

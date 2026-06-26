@@ -1,4 +1,7 @@
 import Link from "next/link";
+import { cookies } from "next/headers";
+
+import { SESSION_COOKIE_NAME, verifySessionToken } from "@/lib/auth/session";
 
 const plannedFeatures = [
   {
@@ -21,7 +24,18 @@ const plannedFeatures = [
   },
 ];
 
-export default function Home() {
+async function getIsAuthenticated(): Promise<boolean> {
+  try {
+    const cookieStore = await cookies();
+    return verifySessionToken(cookieStore.get(SESSION_COOKIE_NAME)?.value);
+  } catch {
+    return false;
+  }
+}
+
+export default async function Home() {
+  const authenticated = await getIsAuthenticated();
+
   return (
     <main className="min-h-screen overflow-hidden bg-[#f7f3e9] text-[#17241d]">
       <div className="mx-auto flex min-h-screen max-w-6xl flex-col px-6 py-8 sm:px-10 lg:px-12">
@@ -36,18 +50,24 @@ export default function Home() {
             </div>
           </div>
           <div className="flex items-center gap-3">
-            <Link
-              href="/vocabulary"
-              className="rounded-full bg-[#24705a] px-4 py-2 text-sm font-bold text-white transition hover:bg-[#17241d]"
-            >
-              进入学习
-            </Link>
-            <Link
-              href="/login"
-              className="rounded-full border border-[#17241d]/15 bg-white/60 px-4 py-2 text-sm font-medium transition hover:border-[#24705a]"
-            >
-              登录
-            </Link>
+            {authenticated ? (
+              <div
+                aria-label="头像"
+                className="grid size-10 place-items-center overflow-hidden rounded-full border border-[#17241d]/15 bg-[#e7e0cf] text-[#17241d]/40"
+              >
+                {/* 头像逻辑暂未实现，先使用默认空白头像占位 */}
+                <svg viewBox="0 0 24 24" className="size-6" fill="currentColor" aria-hidden>
+                  <path d="M12 12a5 5 0 1 0 0-10 5 5 0 0 0 0 10Zm0 2c-4.42 0-8 2.69-8 6v2h16v-2c0-3.31-3.58-6-8-6Z" />
+                </svg>
+              </div>
+            ) : (
+              <Link
+                href="/login"
+                className="rounded-full border border-[#17241d]/15 bg-white/60 px-4 py-2 text-sm font-medium transition hover:border-[#24705a]"
+              >
+                登录
+              </Link>
+            )}
           </div>
         </header>
 
@@ -67,10 +87,10 @@ export default function Home() {
 
             <div className="mt-9 flex flex-wrap items-center gap-4">
               <Link
-                href="/vocabulary/book"
+                href="/study"
                 className="rounded-full bg-[#17241d] px-6 py-3 text-sm font-bold text-white transition hover:bg-[#24705a]"
               >
-                打开单词本
+                进入学习
               </Link>
               <span className="text-sm text-[#17241d]/55">
                 Next.js · TypeScript · Tailwind CSS

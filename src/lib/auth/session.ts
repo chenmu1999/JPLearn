@@ -10,18 +10,8 @@ import type { NextRequest, NextResponse } from "next/server";
 
 import { LOCAL_USER_ID } from "@/lib/vocabulary/config";
 
-const SESSION_COOKIE_NAME = "jplearn_session";
+export const SESSION_COOKIE_NAME = "jplearn_session";
 const SESSION_MAX_AGE_SECONDS = 60 * 60 * 24 * 7;
-
-function getLoginPassword(): string {
-  const password = process.env.APP_LOGIN_PASSWORD?.trim();
-
-  if (!password) {
-    throw new Error("登录功能尚未配置，请设置 APP_LOGIN_PASSWORD。");
-  }
-
-  return password;
-}
 
 function getSessionSecret(): string {
   const secret = process.env.SESSION_SECRET?.trim();
@@ -48,10 +38,6 @@ function safelyEqual(left: string, right: string): boolean {
   }
 
   return timingSafeEqual(leftBuffer, rightBuffer);
-}
-
-export function verifyLoginPassword(password: string): boolean {
-  return safelyEqual(password, getLoginPassword());
 }
 
 export function createSessionToken(): string {
@@ -95,24 +81,54 @@ export function getSessionUserId(request: NextRequest): string | null {
   return isAuthenticated(request) ? LOCAL_USER_ID : null;
 }
 
-export function setSessionCookie(response: NextResponse): void {
+/**
+ * The `Secure` cookie attribute is only honored by browsers over HTTPS. Basing
+ * it on NODE_ENV alone breaks plain-HTTP deployments (e.g. intranet testing),
+ * where a production build serves over http:// and the browser then silently
+ * drops the session cookie. Instead, mark the cookie Secure only when the
+ * request actually arrived over HTTPS (directly or via a TLS-terminating proxy).
+ */
+function isRequestSecure(request?: NextRequest): boolean {
+  if (!request) {
+    return process.env.NODE_ENV === "production";
+  }
+
+  const forwardedProto = request.headers
+    .get("x-forwarded-proto")
+    ?.split(",")[0]
+    ?.trim();
+
+  if (forwardedProto) {
+    return forwardedProto === "https";
+  }
+
+  return request.nextUrl.protocol === "https:";
+}
+
+export function setSessionCookie(
+  response: NextResponse,
+  request?: NextRequest,
+): void {
   response.cookies.set({
     name: SESSION_COOKIE_NAME,
     value: createSessionToken(),
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
+    secure: isRequestSecure(request),
     sameSite: "lax",
     maxAge: SESSION_MAX_AGE_SECONDS,
     path: "/",
   });
 }
 
-export function clearSessionCookie(response: NextResponse): void {
+export function clearSessionCookie(
+  response: NextResponse,
+  request?: NextRequest,
+): void {
   response.cookies.set({
     name: SESSION_COOKIE_NAME,
     value: "",
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
+    secure: isRequestSecure(request),
     sameSite: "lax",
     maxAge: 0,
     path: "/",

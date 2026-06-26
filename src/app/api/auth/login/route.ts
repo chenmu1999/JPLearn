@@ -1,9 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import {
-  setSessionCookie,
-  verifyLoginPassword,
-} from "@/lib/auth/session";
+import { verifyAccountCredentials } from "@/lib/auth/account";
+import { setSessionCookie } from "@/lib/auth/session";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -68,25 +66,37 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const password =
+  const readField = (key: "username" | "password"): string =>
     typeof body === "object" &&
     body !== null &&
-    "password" in body &&
-    typeof body.password === "string"
-      ? body.password
+    key in body &&
+    typeof (body as Record<string, unknown>)[key] === "string"
+      ? (body as Record<string, string>)[key]
       : "";
 
+  const username = readField("username").trim();
+  const password = readField("password");
+
   try {
-    if (!password || !verifyLoginPassword(password)) {
+    if (!username || !password) {
       return NextResponse.json(
-        { ok: false, message: "密码不正确。" },
+        { ok: false, message: "请输入账号和密码。" },
+        { status: 400 },
+      );
+    }
+
+    const userProfileId = await verifyAccountCredentials(username, password);
+
+    if (!userProfileId) {
+      return NextResponse.json(
+        { ok: false, message: "账号或密码不正确。" },
         { status: 401 },
       );
     }
 
     loginAttempts.delete(clientId);
     const response = NextResponse.json({ ok: true });
-    setSessionCookie(response);
+    setSessionCookie(response, request);
     return response;
   } catch (error) {
     console.error("Login configuration error", error);
