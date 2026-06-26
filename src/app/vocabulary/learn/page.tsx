@@ -71,11 +71,14 @@ export default function LearnPage() {
   const [state, setState] = useState<StudyState>(INITIAL);
   const inputRef = useRef<HTMLInputElement>(null);
   const abortRef = useRef<AbortController | null>(null);
+  const planIdRef = useRef<string | null>(null);
+  const [backHref, setBackHref] = useState("/vocabulary");
 
   const loadNext = useCallback(async (sessionId: string, alive: boolean, signal: AbortSignal) => {
     setState((s) => ({ ...s, phase: "LOADING", sessionId }));
     try {
-      const res = await fetch("/api/vocabulary/learn/next", { signal });
+      const planQuery = planIdRef.current ? `?planId=${encodeURIComponent(planIdRef.current)}` : "";
+      const res = await fetch(`/api/vocabulary/learn/next${planQuery}`, { signal });
       if (!alive) return;
       const body: { ok: boolean; message?: string } & Partial<LearnNextDTO> = await res.json();
       if (!alive) return;
@@ -120,13 +123,16 @@ export default function LearnPage() {
     const ac = new AbortController();
     abortRef.current = ac;
 
+    planIdRef.current = new URLSearchParams(window.location.search).get("planId");
+    if (planIdRef.current) setBackHref(`/vocabulary/plans/${planIdRef.current}`);
+
     (async () => {
       try {
-        // Create / resume LEARN session
+        // Create / resume LEARN session (scoped to the plan, if any)
         const sessRes = await fetch("/api/vocabulary/sessions", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ sessionType: "LEARN" }),
+          body: JSON.stringify({ sessionType: "LEARN", planId: planIdRef.current ?? undefined }),
           signal: ac.signal,
         });
         if (!alive) return;
@@ -242,7 +248,7 @@ export default function LearnPage() {
             <h1 className="mt-1 text-2xl font-black tracking-tight">今日新词</h1>
           </div>
           <Link
-            href="/vocabulary"
+            href={backHref}
             className="rounded-full border border-[#17241d]/15 bg-white/60 px-4 py-2 text-sm font-medium"
           >
             返回
@@ -253,7 +259,7 @@ export default function LearnPage() {
 
         {phase === "ERROR" && <ErrorCard message={errorMsg} />}
 
-        {phase === "DONE" && <DoneCard remaining={remaining} />}
+        {phase === "DONE" && <DoneCard remaining={remaining} backHref={backHref} />}
 
         {(phase === "CARD" || phase === "QUESTION" || phase === "SUBMITTING") && card && question && (
           <StudyCard
@@ -312,7 +318,7 @@ function ErrorCard({ message }: { message: string }) {
   );
 }
 
-function DoneCard({ remaining }: { remaining: number }) {
+function DoneCard({ remaining, backHref }: { remaining: number; backHref: string }) {
   return (
     <div className="rounded-2xl border border-[#17241d]/15 bg-white/80 p-8 text-center">
       <div className="mb-4 text-5xl">🎉</div>
@@ -326,10 +332,10 @@ function DoneCard({ remaining }: { remaining: number }) {
       </p>
       <div className="mt-6 flex justify-center gap-3">
         <Link
-          href="/vocabulary"
+          href={backHref}
           className="rounded-xl border border-[#17241d]/20 bg-white px-6 py-2 text-sm font-semibold"
         >
-          返回单词模块
+          返回
         </Link>
       </div>
     </div>

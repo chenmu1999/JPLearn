@@ -27,10 +27,10 @@ export default function StudyPage() {
         </header>
 
         <div className="flex flex-1 flex-col justify-center gap-5 pb-12">
-          {/* 单词：进入现有单词模块，每次都从单词模块主页打开 */}
+          {/* 单词：进入背单词计划列表，每次都从计划主页打开 */}
           <button
             type="button"
-            onClick={() => router.push("/vocabulary")}
+            onClick={() => router.push("/vocabulary/plans")}
             className="group flex w-full items-center justify-between rounded-3xl bg-[#24705a] px-8 py-10 text-left text-white shadow-[0_18px_50px_rgba(36,112,90,0.25)] transition active:scale-[0.98] hover:bg-[#1c5a48]"
           >
             <div>

@@ -15,6 +15,7 @@ interface ReviewSessionProps {
   sessionType: typeof SESSION_TYPE.REVIEW | typeof SESSION_TYPE.WRONG_BOOK;
   title: string;
   backHref: string;
+  planId?: string;
   filters?: { days?: 7 | 30; errorType?: string; dimension?: string };
 }
 
@@ -24,6 +25,7 @@ export function VocabularyReviewSession({
   sessionType,
   title,
   backHref,
+  planId,
   filters,
 }: ReviewSessionProps) {
   const [phase, setPhase] = useState<Phase>("LOADING");
@@ -40,7 +42,7 @@ export function VocabularyReviewSession({
     setPhase("LOADING");
     try {
       const response = await fetch(
-        `/api/vocabulary/review/next?sessionType=${sessionType}`,
+        `/api/vocabulary/review/next?sessionType=${sessionType}${planId ? `&planId=${encodeURIComponent(planId)}` : ""}`,
         { signal },
       );
       const body: { ok: boolean; message?: string } & Partial<LearnNextDTO> =
@@ -67,7 +69,7 @@ export function VocabularyReviewSession({
       setMessage("网络错误，请刷新重试。");
       setPhase("ERROR");
     }
-  }, [sessionType]);
+  }, [sessionType, planId]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -76,7 +78,7 @@ export function VocabularyReviewSession({
         const response = await fetch("/api/vocabulary/sessions", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ sessionType, ...filters }),
+          body: JSON.stringify({ sessionType, planId, ...filters }),
           signal: controller.signal,
         });
         const body = await response.json();
@@ -93,7 +95,7 @@ export function VocabularyReviewSession({
       }
     })();
     return () => controller.abort();
-  }, [filters, loadNext, sessionType]);
+  }, [filters, loadNext, sessionType, planId]);
 
   useEffect(() => {
     if (phase === "QUESTION") inputRef.current?.focus();
