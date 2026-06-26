@@ -37,14 +37,17 @@ export default function Home() {
           </div>
           <div className="flex items-center gap-3">
             <Link
-              href="/vocabulary/book"
+              href="/vocabulary"
               className="rounded-full bg-[#24705a] px-4 py-2 text-sm font-bold text-white transition hover:bg-[#17241d]"
             >
-              单词本
+              进入学习
             </Link>
-            <span className="rounded-full border border-[#17241d]/15 bg-white/60 px-4 py-2 text-sm font-medium">
-              MVP 开发中
-            </span>
+            <Link
+              href="/login"
+              className="rounded-full border border-[#17241d]/15 bg-white/60 px-4 py-2 text-sm font-medium transition hover:border-[#24705a]"
+            >
+              登录
+            </Link>
           </div>
         </header>
 
