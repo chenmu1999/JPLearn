@@ -38,7 +38,13 @@ export default function PlansPage() {
   }
 
   useEffect(() => {
-    reload().catch(() => setLoadState("error"));
+    void (async () => {
+      try {
+        await reload();
+      } catch {
+        setLoadState("error");
+      }
+    })();
   }, []);
 
   return (

@@ -109,8 +109,6 @@ function splitForms(raw: string): string[] {
   return out;
 }
 
-const MEANING_SEPARATOR_RE = /[；;、]/;
-
 interface ParsedRow {
   sourceKey: string;
   level: string;

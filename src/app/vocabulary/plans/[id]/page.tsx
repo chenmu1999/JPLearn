@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 
-import type { PlanDTO } from "@/lib/vocabulary/types";
+import type { PlanDTO, PlanTimeMode } from "@/lib/vocabulary/types";
 
 type LoadState = "loading" | "ready" | "notfound" | "unauthorized" | "error";
 
@@ -26,7 +26,13 @@ export default function PlanDetailPage() {
   }, [planId]);
 
   useEffect(() => {
-    load().catch(() => setLoadState("error"));
+    void (async () => {
+      try {
+        await load();
+      } catch {
+        setLoadState("error");
+      }
+    })();
   }, [load]);
 
   async function archive() {
@@ -59,14 +65,27 @@ export default function PlanDetailPage() {
         {loadState === "error" && <Notice text="加载失败，请刷新重试。" tone="error" />}
 
         {loadState === "ready" && plan && (
-          <PlanDetail plan={plan} onStart={() => router.push(`/vocabulary/learn?planId=${plan.id}`)} />
+          <PlanDetail
+            plan={plan}
+            onStart={() => router.push(`/vocabulary/learn?planId=${plan.id}`)}
+            onReload={load}
+          />
         )}
       </div>
     </main>
   );
 }
 
-function PlanDetail({ plan, onStart }: { plan: PlanDTO; onStart: () => void }) {
+function PlanDetail({
+  plan,
+  onStart,
+  onReload,
+}: {
+  plan: PlanDTO;
+  onStart: () => void;
+  onReload: () => Promise<void>;
+}) {
+  const [adjusting, setAdjusting] = useState(false);
   const masteredPct = plan.totalWords > 0 ? Math.round((plan.masteredWords / plan.totalWords) * 100) : 0;
   const learnedPct = plan.totalWords > 0 ? Math.round((plan.learnedWords / plan.totalWords) * 100) : 0;
   const todayDone = plan.newToday.total - plan.newToday.remaining;
@@ -99,6 +118,26 @@ function PlanDetail({ plan, onStart }: { plan: PlanDTO; onStart: () => void }) {
         <Stat label="每日均量" value={`${plan.dailyNewCount}`} unit="词" />
       </div>
 
+      {/* Adjust pace */}
+      {plan.status === "ACTIVE" &&
+        (adjusting ? (
+          <AdjustPace
+            plan={plan}
+            onCancel={() => setAdjusting(false)}
+            onSaved={async () => {
+              setAdjusting(false);
+              await onReload();
+            }}
+          />
+        ) : (
+          <button
+            onClick={() => setAdjusting(true)}
+            className="w-full rounded-2xl border border-[#17241d]/15 bg-white/60 py-3 text-sm font-bold text-[#17241d]/70 transition hover:border-[#24705a] hover:text-[#24705a]"
+          >
+            调整学习节奏
+          </button>
+        ))}
+
       {/* Today's task */}
       <div className="rounded-3xl border border-[#17241d]/15 bg-white/80 p-6">
         <div className="flex items-center justify-between">
@@ -127,6 +166,146 @@ function PlanDetail({ plan, onStart }: { plan: PlanDTO; onStart: () => void }) {
       <p className="text-center text-xs text-[#17241d]/40">
         {plan.startDate} 起{plan.endDate ? ` · 目标 ${plan.endDate}` : ""}
       </p>
+    </div>
+  );
+}
+
+function AdjustPace({
+  plan,
+  onCancel,
+  onSaved,
+}: {
+  plan: PlanDTO;
+  onCancel: () => void;
+  onSaved: () => Promise<void>;
+}) {
+  // Adjustment re-plans only the words still to learn; mastered/learned progress is kept.
+  const remaining = Math.max(0, plan.totalWords - plan.learnedWords);
+  const today = new Date().toISOString().slice(0, 10);
+
+  const [mode, setMode] = useState<PlanTimeMode>("BY_DAILY");
+  const [dailyCount, setDailyCount] = useState(plan.dailyNewCount);
+  const [endDate, setEndDate] = useState(plan.endDate && plan.endDate >= today ? plan.endDate : today);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState("");
+
+  // Live preview (server is authoritative; this mirrors its formula over remaining words).
+  let previewDaily = dailyCount;
+  let previewDays = 0;
+  if (mode === "BY_DAILY") {
+    previewDaily = Math.max(1, dailyCount);
+    previewDays = remaining > 0 ? Math.ceil(remaining / previewDaily) : 0;
+  } else {
+    previewDays = Math.max(1, Math.round((Date.parse(endDate) - Date.parse(today)) / 86400000) + 1);
+    previewDaily = remaining > 0 ? Math.ceil(remaining / previewDays) : 0;
+  }
+
+  async function submit() {
+    if (submitting) return;
+    if (mode === "BY_END_DATE" && endDate < today) {
+      setError("结束日期不能早于今天。");
+      return;
+    }
+    if (mode === "BY_DAILY" && (dailyCount < 1 || dailyCount > 500)) {
+      setError("每日词数需在 1–500 之间。");
+      return;
+    }
+    setSubmitting(true);
+    setError("");
+    try {
+      const payload =
+        mode === "BY_DAILY" ? { dailyCount: Math.max(1, dailyCount) } : { endDate };
+      const res = await fetch(`/api/vocabulary/plans/${plan.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const body = await res.json().catch(() => null);
+      if (!res.ok || !body?.ok) {
+        setError(body?.message ?? "调整失败，请重试。");
+        return;
+      }
+      await onSaved();
+    } catch {
+      setError("网络错误，请重试。");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <div className="rounded-2xl border border-[#24705a]/30 bg-white/85 p-5 shadow-[0_14px_40px_rgba(36,112,90,0.12)]">
+      <h2 className="text-lg font-black">调整学习节奏</h2>
+      <p className="mt-1 text-xs text-[#17241d]/55">
+        仅重排剩余 <b>{remaining}</b> 个未学词，已学进度保留。
+      </p>
+
+      <label className="mt-4 block text-sm font-bold">调整方式</label>
+      <div className="mt-2 grid grid-cols-2 gap-2">
+        <button
+          onClick={() => setMode("BY_DAILY")}
+          className={`rounded-xl border py-2 text-sm font-bold transition ${
+            mode === "BY_DAILY" ? "border-[#24705a] bg-[#24705a]/10 text-[#24705a]" : "border-[#17241d]/15 bg-white"
+          }`}
+        >
+          定每日词数
+        </button>
+        <button
+          onClick={() => setMode("BY_END_DATE")}
+          className={`rounded-xl border py-2 text-sm font-bold transition ${
+            mode === "BY_END_DATE" ? "border-[#24705a] bg-[#24705a]/10 text-[#24705a]" : "border-[#17241d]/15 bg-white"
+          }`}
+        >
+          定结束日期
+        </button>
+      </div>
+
+      {mode === "BY_DAILY" ? (
+        <div className="mt-3">
+          <label className="block text-sm font-bold">每天背多少词</label>
+          <input
+            type="number"
+            min={1}
+            max={500}
+            value={dailyCount}
+            onChange={(e) => setDailyCount(Number(e.target.value))}
+            className="mt-2 w-full rounded-xl border border-[#17241d]/15 bg-white px-4 py-2.5 text-base outline-none focus:border-[#24705a]"
+          />
+        </div>
+      ) : (
+        <div className="mt-3">
+          <label className="block text-sm font-bold">计划完成日期</label>
+          <input
+            type="date"
+            value={endDate}
+            min={today}
+            onChange={(e) => setEndDate(e.target.value)}
+            className="mt-2 w-full rounded-xl border border-[#17241d]/15 bg-white px-4 py-2.5 text-base outline-none focus:border-[#24705a]"
+          />
+        </div>
+      )}
+
+      <div className="mt-4 rounded-xl bg-[#f7f3e9] px-4 py-3 text-sm text-[#17241d]/75">
+        剩余 <b>{remaining}</b> 词 · 每天约 <b>{previewDaily}</b> 词 · 预计 <b>{previewDays}</b> 天完成
+      </div>
+
+      {error && <p className="mt-3 text-sm font-medium text-[#d94f3d]">{error}</p>}
+
+      <div className="mt-4 flex gap-3">
+        <button
+          onClick={onCancel}
+          className="flex-1 rounded-full border border-[#17241d]/15 bg-white py-2.5 text-sm font-bold"
+        >
+          取消
+        </button>
+        <button
+          onClick={submit}
+          disabled={submitting || remaining === 0}
+          className="flex-1 rounded-full bg-[#24705a] py-2.5 text-sm font-bold text-white transition hover:bg-[#1c5a48] disabled:opacity-40"
+        >
+          {submitting ? "保存中…" : "保存调整"}
+        </button>
+      </div>
     </div>
   );
 }

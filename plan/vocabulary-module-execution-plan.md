@@ -63,13 +63,17 @@ M1-M7 构成免费基础背词 MVP。M8-M9 构成付费 AI 例句 MVP。
 
 以下规则应先写成代码常量或配置，避免散落在页面和接口中。
 
-### 4.1 第一版学习范围
+### 4.1 学习范围（已扩展）
 
-- 词书：JLPT N5 核心词汇。
-- 权威导入源：`data/vocabulary/jlpt/jlpt-vocabulary.csv` 中的 718 条 N5 来源词条。
-- 默认用户：沿用当前单用户模式。
-- 每日新词默认值：`10`。
-- 每日新词可选范围：`5-50`。
+> 实现变更：初版锁定为「单用户 / 仅 N5 718 词 / 单一计划 / 按词表序」。当前实现已扩展为账号登录、N1–N5 全量导入、多计划并行、按词频排序。下列为现状。
+
+- 词书：JLPT N1–N5 全部等级（由易到难 `N5,N4,N3,N2,N1`），共 8131 词（N1:2699 N2:1906 N3:2140 N4:668 N5:718）。
+- 权威导入源：`data/vocabulary/jlpt/jlpt-vocabulary.csv`，通过 `scripts/import-jlpt-vocabulary.ts`（`--all` 或 `--level=Nx`）按等级导入。
+- 用户：账号密码登录（`Account` 模型，第一版单账号 `admin` 关联种子 `UserProfile`）。
+- 学习计划：支持**多个并行 `ACTIVE` 计划**，每个绑定单一等级，按 `planId` 隔离。
+- 每日新词默认值：`10`；可选范围 `5-50`。
+- 每日新词实际数量：**自适应均摊** `todayTarget = min(剩余新词, max(1, ceil(剩余新词 / 剩余天数)))`，漏背自动补偿。`dailyNewCount` 仅作为创建时的目标速度。
+- 计划创建模式：`BY_DAILY`（定每日量推天数）与 `BY_END_DATE`（定结束日推每日量），互相推导。
 - 单次学习任务：先完成新词，再提示进入复习；用户可以主动切换顺序。
 - 核心能力维度：读音、假名拼写、词义。
 - 辅助能力维度：表记、语境。
@@ -125,7 +129,7 @@ Stage 5：30 天
 ### 4.5 默认例句策略
 
 - CSV 中存在可用例句时导入为 `SOURCE`。
-- 第一版建立独立的人工审核 `CURATED` 例句数据，目标覆盖全部 718 条 N5 来源词条。
+- 第一版建立独立的人工审核 `CURATED` 例句数据，目标覆盖全部 718 条 N5 来源词条（基础词条导入已覆盖 N1–N5，但人工例句第一版仍只针对 N5）。
 - 没有有效例句时允许单词暂时无例句，学习卡和其他基础题型仍可使用。
 - 没有有效例句的词条跳过 `CONTEXT_WORD_CHOICE`，不能为了出题实时调用 AI。
 - 已保存且未被当前用户隐藏的 AI 例句可以作为后续语境题素材。
@@ -295,11 +299,11 @@ data/fixtures/vocabulary-acceptance.json
 - `VocabularyEntry.knowledgePointId` 唯一。
 - `VocabularyEntry.sourceKey` 唯一。
 - `(userId, vocabularyId)` 在 `VocabularyMastery` 中唯一。
-- 一个用户只能有一个启用中的词汇学习计划。
+- 一个用户可以有多个启用中（`ACTIVE`）的词汇学习计划，每个绑定单一等级；按 `planId` 隔离取词。
 - `VocabularyAcceptedForm` 对同一单词、类型和值唯一。
 - `VocabularySense` 对同一词条的显示顺序唯一。
 - `VocabularyAttempt.questionId` 唯一。
-- 每日分配按用户、日期、词条和任务类型唯一。
+- 每日分配按 `planId`、日期、词条和任务类型唯一；同一 `planId`、日期、任务类型下 `order` 唯一。
 - 同一会话内 `VocabularySessionItem.sequence` 唯一。
 - 同一用户同一会话类型最多一个活动会话，由服务事务保证。
 - 所有分数由应用层限制在 `0-100`。
@@ -339,7 +343,7 @@ data/fixtures/vocabulary-acceptance.json
 data/vocabulary/jlpt/jlpt-vocabulary.csv
 ```
 
-第一版筛选 `level=N5`，当前预期为 718 条。`n1.csv` 至 `n5.csv` 只用于来源追溯，不作为应用导入入口。不得让运行中的 Web 请求读取 Windows 工作区外部路径。
+通用导入脚本 `scripts/import-jlpt-vocabulary.ts`（`pnpm db:import:jlpt`）支持 `--all` 或 `--level=Nx`，按等级校验计数。当前已导入 N1–N5 全部 8131 条（N1:2699 N2:1906 N3:2140 N4:668 N5:718）。`n1.csv` 至 `n5.csv` 只用于来源追溯，不作为应用导入入口。不得让运行中的 Web 请求读取 Windows 工作区外部路径。
 
 ### 8.2 字段映射
 
@@ -438,7 +442,7 @@ usageNoteZh
 
 ### 8.6 Ubuntu 验收
 
-- N5 活跃来源词条与数据源预期一致，目前为 718。
+- 各等级活跃来源词条与数据源预期一致：N1–N5 共 8131（N5 718、N4 668、N3 2140、N2 1906、N1 2699）。
 - 随机抽查至少 20 条映射。
 - 代表性验收样例全部能查询。
 - 重复导入不会增加总数。
@@ -527,6 +531,7 @@ sort
 VocabularyDailyAssignment
 - id
 - userId
+- planId           // 所属计划，分配按计划隔离
 - localDate
 - vocabularyId
 - assignmentType   // NEW, REVIEW
@@ -536,25 +541,33 @@ VocabularyDailyAssignment
 
 NEW 分配必须固定。REVIEW 可以按 `nextReviewAt` 动态补入，但写入当日分配后同样保持稳定。
 
-### 10.2 新词选择顺序
+### 10.2 新词选择顺序（已改为词频优先）
 
-默认：
+> 实现变更：原规划按数据源序号升序。现改为语料库词频优先，解决相似词扎堆问题。
 
-1. `status=NEW`。
-2. 按数据源序号升序。
-3. 已暂停单词排除。
-4. 同一日期创建固定分配。
+默认 `orderBy`：
 
-后续可增加随机或主题顺序，但第一版需要可重复和可解释。
+1. `status=NEW`（已暂停单词排除）。
+2. `level`（计划绑定等级）。
+3. `frequencyRank` 升序，`nulls last`（1 最常用；未命中词频表的词排末尾）。
+4. `sourceOrder` 升序（兜底，保证可重复）。
+5. 同一日期创建固定分配。
+
+`frequencyRank` 由 Leeds 日语语料库词频表回填（`scripts/backfill-frequency-rank.ts`，N5 覆盖 96.1%）。仅影响尚未学到的词，不打乱已学进度；顺序仍可重复、可解释。
 
 ### 10.3 API
 
 ```text
 GET  /api/vocabulary/dashboard
 GET  /api/vocabulary/learn/next
-GET  /api/vocabulary/plan
-PUT  /api/vocabulary/plan
+GET    /api/vocabulary/plans            // 列出计划（含进度 PlanDTO）
+POST   /api/vocabulary/plans            // 新建计划（BY_DAILY / BY_END_DATE）
+GET    /api/vocabulary/plans/[id]       // 单个计划进度
+PATCH  /api/vocabulary/plans/[id]       // 更新计划
+DELETE /api/vocabulary/plans/[id]       // 归档/删除计划
 ```
+
+> 实现变更：原规划为单计划 `GET/PUT /api/vocabulary/plan`，现为多计划 REST 资源 `/api/vocabulary/plans(+/[id])`。`learn/next`、`review/next`、`sessions` 均透传 `planId`。
 
 `dashboard` 返回：
 
@@ -564,6 +577,17 @@ PUT  /api/vocabulary/plan
 - 总词数、已学习数、已掌握数。
 - 三个核心能力平均值。
 
+### 10.3.1 进行中计划的随时调整（详见 design §4.1.1）
+
+`ACTIVE` 计划允许随时调整节奏，无需删除重建：
+
+- `PATCH /api/vocabulary/plans/[id]` 接收 `dailyCount`（改每日量，推导结束日）或 `endDate`（改结束日，推导每日量），二选一。
+- 重算基准为**剩余未学词数** `countRemainingNewWords(planId, level)`，已学进度保留。
+- 服务端原子更新 `dailyNewCount` 与 `targetCompletedAt`；这两个派生值不接受客户端直接写入。
+- 不重排/不删除已生成的当日 `NEW` 分配（防漂移），新节奏从下一次分配生成起生效。
+
+实现现状：服务层 `updatePlanById` 与 PATCH 路由已就绪；`/vocabulary/plans/[id]` 进度页的「调整学习节奏」UI（`AdjustPace` 组件）已落地，带实时预览（以剩余未学词数为基准的「剩余 N 词 · 每天约 X 词 · 预计 Y 天」）。源码已实现，待 VM 验证。
+
 ### 10.4 完成标准
 
 - 同一天重复进入时新词列表不变化。
@@ -571,6 +595,7 @@ PUT  /api/vocabulary/plan
 - 跨天后生成新的任务。
 - 时区边界按 `Asia/Shanghai` 计算。
 - 没有剩余新词时返回明确完成状态。
+- 进行中计划可随时调整每日量或结束日期，按剩余词数重算且不影响已学进度。
 
 ## 11. M5：客观题与判题引擎
 
@@ -1146,6 +1171,17 @@ AI 例句状态固定为：
 
 每个 Batch 应能独立审查。除数据库迁移等必要关联外，不要把多个里程碑塞进一次大改动。
 
+### Batch 4.1（已实现，待 VM 验证）：计划随时调整 UI
+
+服务层（`updatePlanById` + PATCH 路由）已就绪，本批补前端，现已落地：
+
+- `/vocabulary/plans/[id]` 进度页新增「调整学习节奏」入口（`AdjustPace` 组件，每日量 / 结束日期二选一），仅 `ACTIVE` 计划展示。
+- 实时预览以剩余未学词数为基准：「剩余 N 词 · 每天约 X 词 · 预计 Y 天完成」（`remaining = totalWords - learnedWords`）。
+- 提交走 `PATCH /api/vocabulary/plans/[id]`，成功后经 `onReload` 刷新进度页；已学进度不变、`dailyNewCount` 与剩余天数由服务端按剩余词数重算。
+- 校验：`endDate` 不早于今天；`dailyCount` 在 `1-500`（与新建表单及 PATCH schema 一致）；剩余为 0 时禁用保存。
+
+VM 待验证项：类型检查 / 构建通过；调整后进度页数值正确、已学进度保留。
+
 ## 18. 风险与应对
 
 ### 18.1 数据质量不足
@@ -1223,7 +1259,7 @@ AI 例句状态固定为：
 
 免费基础背词 MVP 完成必须同时满足：
 
-- 718 个 N5 来源词条可幂等导入。
+- N1–N5 全部 8131 来源词条可幂等导入（通用脚本支持 `--all` / `--level=Nx`）。
 - 人工审核例句数据可幂等导入并输出覆盖率；未覆盖词条自动降级。
 - 用户可以设置每日新词数。
 - 今日新词任务固定且可恢复。
