@@ -1,6 +1,6 @@
 # 日语学习工具 MVP 计划
 
-> 本文保留最初 MVP 背景。词汇数据源、单词数据模型和掌握规则已经被 `database-design.md`、`vocabulary-module-design.md` 与 `vocabulary-module-execution-plan.md` 取代，不再作为单词模块实现依据。
+> 本文保留最初 MVP 背景。词汇数据源、单词数据模型和掌握规则已经被 `数据库设计.md`、`单词模块实现方案.md` 与 `单词模块详细执行计划.md` 取代，不再作为单词模块实现依据。
 
 ## Summary
 

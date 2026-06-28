@@ -1,7 +1,7 @@
 /**
  * Locked first-version rules and constants for the vocabulary module.
  * Centralised here (not scattered across components/routes) per
- * plan/vocabulary-module-execution-plan.md §4. Safe to import from both server
+ * plan/单词模块详细执行计划.md §4. Safe to import from both server
  * and client code (no server-only dependencies).
  */
 

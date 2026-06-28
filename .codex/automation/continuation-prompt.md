@@ -9,9 +9,9 @@ D:\Project\Web\JPLearn
 2. 确认当前分支是 codex/vocabulary-feature。
 3. 查看 git status 和最近提交。
 4. 阅读：
-   - plan/database-design.md
-   - plan/vocabulary-module-design.md
-   - plan/vocabulary-module-execution-plan.md
+   - plan/数据库设计.md
+   - plan/单词模块实现方案.md
+   - plan/单词模块详细执行计划.md
 5. 检查现有 Prisma、src/lib/vocabulary、词汇 API、页面、脚本和迁移。
 6. 综合以下证据判断真实进度：
    - 实际源码是否存在且完整；

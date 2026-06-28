@@ -1,5 +1,5 @@
 // JPLearn vocabulary module — Batch 1 data foundation.
-// Authoritative model: plan/database-design.md. Keep this schema aligned with that doc.
+// Authoritative model: plan/数据库设计.md. Keep this schema aligned with that doc.
 //
 // SQLite note: the Prisma sqlite connector does not support native enums, so all
 // "enum-like" columns are String fields whose allowed values are documented inline

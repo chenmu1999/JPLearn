@@ -3,7 +3,7 @@
  *
  * Generalises scripts/import-n5-vocabulary.ts to any JLPT level. Reads the
  * authoritative CSV (data/vocabulary/jlpt/jlpt-vocabulary.csv) and idempotently
- * upserts base vocabulary data per plan/database-design.md §4/§9:
+ * upserts base vocabulary data per plan/数据库设计.md §4/§9:
  *   KnowledgePoint(kind=VOCABULARY) + VocabularyEntry
  *   + primary/secondary READING & WRITING VocabularyAcceptedForm
  *   + one primary VocabularySense.

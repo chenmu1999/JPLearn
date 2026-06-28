@@ -1,5 +1,5 @@
 {
-  "description": "20 representative N5 source entries used to verify the importer's mapping (lemma, primary forms, accepted reading/writing splitting, meaning) and the kana phenomena coverage required by plan/vocabulary-module-execution-plan.md §6.1. Expected values reflect importer output AFTER cleaning (parenthetical annotations stripped, ';'/'；' split into multiple accepted forms). meaningZhContains is a substring assertion, not the full string.",
+  "description": "20 representative N5 source entries used to verify the importer's mapping (lemma, primary forms, accepted reading/writing splitting, meaning) and the kana phenomena coverage required by plan/单词模块详细执行计划.md §6.1. Expected values reflect importer output AFTER cleaning (parenthetical annotations stripped, ';'/'；' split into multiple accepted forms). meaningZhContains is a substring assertion, not the full string.",
   "level": "N5",
   "samples": [
     {

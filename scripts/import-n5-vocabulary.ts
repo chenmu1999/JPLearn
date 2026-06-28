@@ -3,7 +3,7 @@
  *
  * Reads the authoritative CSV (data/vocabulary/jlpt/jlpt-vocabulary.csv),
  * filters level=N5 (expected 718 rows), and idempotently upserts the base
- * vocabulary data per plan/database-design.md §4/§9:
+ * vocabulary data per plan/数据库设计.md §4/§9:
  *   KnowledgePoint(kind=VOCABULARY) + VocabularyEntry
  *   + primary/secondary READING & WRITING VocabularyAcceptedForm
  *   + one primary VocabularySense.
